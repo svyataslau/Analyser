@@ -23,6 +23,10 @@
     height: 30px;
     width: auto; 
     padding: 4px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
   }
   audio {
     float: left;
@@ -30,12 +34,6 @@
   }
   #colorRange {
     width: 790px;
-  }
-  .panel {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
   }
   #searchBox:hover {
     cursor: pointer;
@@ -68,10 +66,26 @@
     color: #000;
     cursor: pointer;
   }
+  #trackBox {
+    height: 60px;
+  }
+  button {
+    position: absolute;
+    z-index: 1;
+    float: center;
+    height: 100%;
+    width: 100%;
+    color: #C0C0C0;
+    text-transform: uppercase;
+    font-family: 'Quantico', sans-serif;
+    font-weight: 700;
+    font-size: 50px;
+  }
   </style>
   <title>Cyber Party</title>
 </head>
 <body>
+  <button>Start</button>
   <div class="Player">
     <div class="panel logo">Cyber ​​party</div>
     <canvas id="analyserBox" width="800" height="450"></canvas>
@@ -133,9 +147,15 @@ btnConstruct.addEventListener('click', () => {
   columnsN = column.value;
 });
 
-window.addEventListener("load", canvasConstruct, false);
+// window.addEventListener("load", canvasConstruct, false);
 
-function canvasConstruct () {
+document.querySelector('button').addEventListener('click', () => {
+  canvasConstruct();
+  document.querySelector('button').style.display = 'none';
+});
+
+function canvasConstruct() {
+  alert('dfdf');
   context = new AudioContext();
   analyser = context.createAnalyser();
   canvas = document.getElementById('analyserBox');
