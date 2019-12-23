@@ -4,7 +4,95 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <script defer>
+  <style type="text/css">
+    @import url('https://fonts.googleapis.com/css?family=Quantico:400,700&display=swap');
+  *{
+    background-color: #000;
+  }
+  .Player { 
+    width: 800px; 
+    background: #C0C0C0;
+    padding: 6px; 
+    margin: 0 auto; 
+  }
+  #analyserBox { 
+    background:#000;
+  }
+  .panel {
+    margin-top: 8px;
+    height: 30px;
+    width: auto; 
+    padding: 4px;
+  }
+  audio {
+    float: left;
+    width: 100%;
+  }
+  #colorRange {
+    width: 790px;
+  }
+  .panel {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+  }
+  #searchBox:hover {
+    cursor: pointer;
+    font-size: 20px;
+  }
+  .logo {
+    font-size: 35px;
+  }
+  .logo, .label, #btnConstruct {
+    color: #C0C0C0;
+    text-transform: uppercase;
+    font-family: 'Quantico', sans-serif;
+    font-weight: 700;
+  }
+  .inputSize {
+    margin: 10px;
+    width: 60px;
+  }
+  #btnConstruct {
+    height: 20px;
+    width: 50px;
+    background-color: #696969;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+  }
+  #btnConstruct:hover {
+    background-color: #C0C0C0;
+    color: #000;
+    cursor: pointer;
+  }
+  </style>
+  <title>Cyber Party</title>
+</head>
+<body>
+  <div class="Player">
+    <div class="panel logo">Cyber ​​party</div>
+    <canvas id="analyserBox" width="800" height="450"></canvas>
+    <div class="panel" id="searchBox">
+      <label for="myfile" class="label">upload your track</label>
+      <input type="file" name="myfile" id="mp3" accept=".mp3" hidden/>
+    </div>
+    <div class="panel" id="sizeBox">
+      <input class="inputSize" type="number" id="column" value="20" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
+      <label class="label">x</label>
+      <input class="inputSize" type="number" id="row" value="10" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
+      <div id="btnConstruct">build</div>
+    </div>
+    <div class="panel" id="colorBox">
+      <input id="colorRange" type="range" min="0" max="360" step="1" oninput="colorRange()">
+    </div>
+    <div class="panel" id="trackBox">
+      <audio id="track" src="track.mp3" controls loop></audio>
+    </div>
+  </div>
+  <script>
 let audio = document.getElementById('track');
 let mp3Element = document.getElementById('mp3');
 let btnUpload = document.getElementById('searchBox');
@@ -101,93 +189,5 @@ function colorRange() {
   return document.getElementById('colorRange').value;
 }
   </script>
-  <style type="text/css">
-    @import url('https://fonts.googleapis.com/css?family=Quantico:400,700&display=swap');
-  *{
-    background-color: #000;
-  }
-  .Player { 
-    width: 800px; 
-    background: #C0C0C0;
-    padding: 6px; 
-    margin: 0 auto; 
-  }
-  #analyserBox { 
-    background:#000;
-  }
-  .panel {
-    margin-top: 8px;
-    height: 30px;
-    width: auto; 
-    padding: 4px;
-  }
-  audio {
-    float: left;
-    width: 100%;
-  }
-  #colorRange {
-    width: 790px;
-  }
-  .panel {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-  }
-  #searchBox:hover {
-    cursor: pointer;
-    font-size: 20px;
-  }
-  .logo {
-    font-size: 35px;
-  }
-  .logo, .label, #btnConstruct {
-    color: #C0C0C0;
-    text-transform: uppercase;
-    font-family: 'Quantico', sans-serif;
-    font-weight: 700;
-  }
-  .inputSize {
-    margin: 10px;
-    width: 60px;
-  }
-  #btnConstruct {
-    height: 20px;
-    width: 50px;
-    background-color: #696969;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-  }
-  #btnConstruct:hover {
-    background-color: #C0C0C0;
-    color: #000;
-    cursor: pointer;
-  }
-  </style>
-  <title>Cyber Party</title>
-</head>
-<body>
-  <div class="Player">
-    <div class="panel logo">Cyber ​​party</div>
-    <canvas id="analyserBox" width="800" height="450"></canvas>
-    <div class="panel" id="searchBox">
-      <label for="myfile" class="label">upload your track</label>
-      <input type="file" name="myfile" id="mp3" accept=".mp3" hidden/>
-    </div>
-    <div class="panel" id="sizeBox">
-      <input class="inputSize" type="number" id="column" value="20" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
-      <label class="label">x</label>
-      <input class="inputSize" type="number" id="row" value="10" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
-      <div id="btnConstruct">build</div>
-    </div>
-    <div class="panel" id="colorBox">
-      <input id="colorRange" type="range" min="0" max="360" step="1" oninput="colorRange()">
-    </div>
-    <div class="panel" id="trackBox">
-      <audio id="track" src="track.mp3" controls loop></audio>
-    </div>
-  </div>
 </body>
 </html>
