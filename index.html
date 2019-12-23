@@ -147,15 +147,12 @@ btnConstruct.addEventListener('click', () => {
   columnsN = column.value;
 });
 
-// window.addEventListener("load", canvasConstruct, false);
-
 document.querySelector('button').addEventListener('click', () => {
   canvasConstruct();
   document.querySelector('button').style.display = 'none';
 });
 
 function canvasConstruct() {
-  alert('dfdf');
   context = new AudioContext();
   analyser = context.createAnalyser();
   canvas = document.getElementById('analyserBox');
