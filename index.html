@@ -114,7 +114,7 @@ let btnConstruct = document.getElementById('btnConstruct');
 let row = document.getElementById('row');
 let column = document.getElementById('column');
 let rowsN = 10, columnsN = 20;
-let canvas, ctx, source, context, analyser, fb_array, bars, bar_x, bar_width, bar_height;
+let canvas, ctx, source, context, analyser, bars, bar_x, bar_height;
 
 function isFromTo(num) {
   if (num.value > 20) {
@@ -130,8 +130,10 @@ btnUpload.addEventListener('click', () => {
 });
 
 mp3Element.addEventListener('change', () => {
-  if (mp3Element.value) {
-    audio.src = mp3Element.value.match(/[\/\\]([\w\d\s\.\-\(\)]+)$/)[1];
+  if (mp3Element.files && mp3Element.files[0]) {
+    const file = mp3Element.files[0];
+    const url = URL.createObjectURL(file);
+    audio.src = url;
   }
 });
 
@@ -165,14 +167,13 @@ function canvasConstruct() {
 
 function frameLooper() {
   window.requestAnimationFrame(frameLooper);
-  array = new Uint8Array (analyser.frequencyBinCount);
+  let array = new Uint8Array (analyser.frequencyBinCount);
   analyser.getByteFrequencyData(array);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = 'hsl(' + getRandomColor(colorRange()) + ',100%, 63%)';
   ctx.lineWidth = 3;
   bars = columnsN;
   for (let i = 0; i < bars; i++) {
-    bar_width = 1;
     bar_height = -(array[i]*(canvas.height/255));
     let step = 450/rowsN;
     let zero = 0;
