@@ -21,7 +21,11 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 8px 16px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 8px 0;
+  box-sizing: border-box;
 }
 
 .site-header__title {
@@ -30,57 +34,174 @@ body {
   text-transform: uppercase;
 }
 
+.player__label {
+  color: #c0c0c0;
+}
+
+.player__section {
+  --banger-control-w: 240px;
+  --banger-control-h: 48px;
+  --banger-stack-gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.player__music-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.player__banger-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: var(--banger-control-w);
+  gap: var(--banger-stack-gap);
+  min-height: calc(var(--banger-control-h) * 2 + var(--banger-stack-gap));
+}
+
+.player__banger-upload {
+  flex: 0 0 auto;
+  margin: 0;
+  width: var(--banger-control-w);
+  height: var(--banger-control-h);
+  padding: 0 12px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  background: #000;
+  cursor: pointer;
+  color: #c0c0c0;
+  font-family: 'Quantico', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  text-align: center;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player__banger-upload-text {
+  display: block;
+  line-height: 1.2;
+}
+
+.player__track-picker--banger {
+  flex: 0 0 auto;
+  width: var(--banger-control-w);
+  height: var(--banger-control-h);
+  margin: 0;
+  padding: 0 32px 0 12px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  background: #000;
+  color: #c0c0c0;
+  font-family: 'Quantico', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23c0c0c0' d='M0 0h12L6 8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+
+.player__album {
+  margin: 0;
+  flex: 0 0 auto;
+  width: calc(var(--banger-control-h) * 2 + var(--banger-stack-gap));
+  height: calc(var(--banger-control-h) * 2 + var(--banger-stack-gap));
+  align-self: flex-start;
+  border: 2px solid #fff;
+  overflow: hidden;
+  background: #111;
+}
+
+.player__album-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.player__album--placeholder .player__album-img {
+  display: none;
+}
+
 .player {
-  width: 800px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 6px;
+  padding: 6px 0;
+  box-sizing: border-box;
 }
 
 .spectrum-canvas {
   display: block;
   width: 100%;
+  max-width: 800px;
   height: auto;
+  margin: 0;
   border: 2px solid #fff;
+  box-sizing: border-box;
 }
 
 .player__panel {
+  width: 100%;
   margin-top: 8px;
   min-height: 30px;
-  padding: 4px 8px;
+  padding: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: center;
+  justify-content: stretch;
   align-items: center;
 }
 
-.player__grid-fields {
+.player__panel--sliders {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.player__slider-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.player__slider-row .player__label {
+  text-align: left;
+  width: 100%;
+}
+
+.player__slider-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 10px;
+  width: 100%;
 }
 
-.player__field-dimension {
-  width: 64px;
-  margin: 0;
-  padding: 4px;
-}
-
-.player__build-button {
-  height: 28px;
-  min-width: 56px;
-  padding: 0 10px;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.player__hue-range {
-  width: min(790px, 100%);
+.player__slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   vertical-align: middle;
 }
 
@@ -89,16 +210,11 @@ body {
   align-items: stretch;
 }
 
-.player__track-picker {
-  flex: 0 1 280px;
-  max-width: 100%;
-  padding: 6px 8px;
-}
-
 .player__audio {
-  flex: 1 1 320px;
+  flex: 1 1 auto;
   min-width: 0;
   width: 100%;
+  max-width: 100%;
 }
 
 .start-screen {

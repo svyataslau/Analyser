@@ -4,27 +4,35 @@
   var GRID_MIN = 10;
   var GRID_MAX = 100;
   var MUSIC_BASE = 'music/';
+  var ASSETS_BASE = 'assets/';
 
   /**
    * Files in /music — add entries here when new tracks are added to the folder.
    * Browsers cannot enumerate directories over HTTP.
    */
   var MUSIC_LIBRARY = [
-    { label: 'Simple', file: 'simple.mp3' },
-    { label: 'Warsaw', file: 'warsaw.mp3' },
-    { label: 'Toto — Africa', file: 'Toto - Africa.mp3' },
-    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3' }
+    { label: 'Kacha - Złote Tarasy', file: 'warsaw.mp3', coverArt: 'kacha.png' },
+    { label: 'Toto — Africa', file: 'Toto - Africa.mp3', coverArt: 'toto.png' },
+    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.png' }
   ];
 
   var audioEl = document.getElementById('spectrum-audio');
+  var albumFigure = document.getElementById('track-album');
+  var albumImg = document.getElementById('track-cover-art');
   var fileInput = document.getElementById('track-file-input');
   var uploadTrigger = document.getElementById('upload-trigger');
-  var buildBtn = document.getElementById('grid-build-button');
-  var columnsInput = document.getElementById('grid-columns-input');
-  var rowsInput = document.getElementById('grid-rows-input');
+  var gridDensityRange = document.getElementById('grid-density-range');
   var trackSelect = document.getElementById('library-track-select');
   var hueRange = document.getElementById('hue-range-input');
   var startScreen = document.getElementById('experience-start');
+
+  if (albumImg) {
+    albumImg.addEventListener('error', function () {
+      if (albumFigure) albumFigure.classList.add('player__album--placeholder');
+      albumImg.removeAttribute('src');
+      albumImg.alt = '';
+    });
+  }
 
   if (audioEl) {
     audioEl.setAttribute('controlsList', 'nodownload');
@@ -52,28 +60,75 @@
     return Math.min(GRID_MAX, Math.max(GRID_MIN, n));
   }
 
-  function applyGridClampToInput(inputEl) {
-    inputEl.value = String(clampGridValue(inputEl.value));
+  function getCanvasLogicalSize() {
+    var el = document.getElementById('spectrum-canvas');
+    return { width: el.width, height: el.height };
   }
 
-  function onGridInputKeypress(evt) {
-    var ch = String.fromCharCode(evt.which);
-    if (!/[0-9]/.test(ch)) evt.preventDefault();
+  function applyGridFromControl() {
+    var size = getCanvasLogicalSize();
+    var cols = clampGridValue(gridDensityRange.value);
+    gridDensityRange.value = String(cols);
+    var rows = Math.round((cols * size.height) / size.width);
+    rows = Math.min(GRID_MAX, Math.max(GRID_MIN, rows));
+    columnsN = cols;
+    rowsN = rows;
+  }
+
+  if (gridDensityRange) {
+    gridDensityRange.addEventListener('input', applyGridFromControl);
+    gridDensityRange.addEventListener('change', applyGridFromControl);
   }
 
   var CUSTOM_VALUE = '__custom_upload__';
+  var UNKNOWN_ALBUM_ART = 'unknown_album.png';
 
   function setAudioFromLibrary(fileName) {
     audioEl.src = MUSIC_BASE + encodeURIComponent(fileName);
   }
 
+  function updateAlbumArt() {
+    var v = trackSelect.value;
+    if (!albumFigure || !albumImg) return;
+    if (!v) {
+      albumFigure.classList.add('player__album--placeholder');
+      albumImg.removeAttribute('src');
+      albumImg.alt = '';
+      return;
+    }
+    if (v === CUSTOM_VALUE) {
+      albumFigure.classList.remove('player__album--placeholder');
+      albumImg.alt = 'Unknown album';
+      albumImg.src = ASSETS_BASE + UNKNOWN_ALBUM_ART;
+      return;
+    }
+    var entry = null;
+    var k;
+    for (k = 0; k < MUSIC_LIBRARY.length; k++) {
+      if (MUSIC_LIBRARY[k].file === v) {
+        entry = MUSIC_LIBRARY[k];
+        break;
+      }
+    }
+    if (!entry || !entry.coverArt) {
+      albumFigure.classList.add('player__album--placeholder');
+      albumImg.removeAttribute('src');
+      albumImg.alt = '';
+      return;
+    }
+    albumFigure.classList.remove('player__album--placeholder');
+    albumImg.alt = entry.label + ' album art';
+    albumImg.src = ASSETS_BASE + entry.coverArt;
+  }
+
   function ensureCustomUploadOption() {
     var existing = trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
-    if (existing) return;
+    if (existing) return existing;
     var opt = document.createElement('option');
     opt.value = CUSTOM_VALUE;
     opt.textContent = 'Uploaded file';
     trackSelect.insertBefore(opt, trackSelect.firstChild);
+    return opt;
   }
 
   function populateTrackSelect() {
@@ -87,6 +142,7 @@
       trackSelect.value = MUSIC_LIBRARY[0].file;
       setAudioFromLibrary(MUSIC_LIBRARY[0].file);
     }
+    updateAlbumArt();
   }
 
   uploadTrigger.addEventListener('click', function () {
@@ -95,33 +151,27 @@
 
   fileInput.addEventListener('change', function () {
     if (fileInput.files && fileInput.files[0]) {
-      ensureCustomUploadOption();
+      var file = fileInput.files[0];
+      var opt = ensureCustomUploadOption();
+      opt.textContent = file.name;
+      opt.title = file.name;
       trackSelect.value = CUSTOM_VALUE;
-      audioEl.src = URL.createObjectURL(fileInput.files[0]);
+      audioEl.src = URL.createObjectURL(file);
+      updateAlbumArt();
     }
   });
 
   trackSelect.addEventListener('change', function () {
     var v = trackSelect.value;
-    if (!v || v === CUSTOM_VALUE) return;
+    if (!v || v === CUSTOM_VALUE) {
+      updateAlbumArt();
+      return;
+    }
     fileInput.value = '';
+    var customOpt = trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
+    if (customOpt) customOpt.remove();
     setAudioFromLibrary(v);
-  });
-
-  [columnsInput, rowsInput].forEach(function (el) {
-    el.addEventListener('keyup', function () {
-      applyGridClampToInput(el);
-    });
-    el.addEventListener('change', function () {
-      applyGridClampToInput(el);
-    });
-  });
-
-  buildBtn.addEventListener('click', function () {
-    applyGridClampToInput(columnsInput);
-    applyGridClampToInput(rowsInput);
-    columnsN = parseInt(columnsInput.value, 10);
-    rowsN = parseInt(rowsInput.value, 10);
+    updateAlbumArt();
   });
 
   function getHueBase() {
@@ -170,7 +220,8 @@
     var cellW = canvas.width / columnsN;
     var cellH = canvas.height / rowsN;
     var hue = getHueBase();
-    ctx.fillStyle = 'hsl(' + randomHueNearBase(hue) + ', 100%, 63%)';
+    var barHue = randomHueNearBase(hue);
+    ctx.fillStyle = 'hsl(' + barHue + ', 100%, 63%)';
 
     var i;
     for (i = 0; i < columnsN; i++) {
@@ -182,6 +233,11 @@
         var y = canvas.height - (j + 1) * cellH;
         ctx.fillRect(i * cellW, y, cellW, cellH);
       }
+    }
+
+    var baselinePx = 5;
+    for (i = 0; i < columnsN; i++) {
+      ctx.fillRect(i * cellW, canvas.height - baselinePx, cellW, baselinePx);
     }
 
     drawGrid(cellW, cellH);
@@ -199,6 +255,7 @@
     analyser.connect(audioContext.destination);
 
     started = true;
+    applyGridFromControl();
     audioContext.resume().then(function () {
       frameLooper();
     });
@@ -214,14 +271,5 @@
   });
 
   populateTrackSelect();
-
-  applyGridClampToInput(columnsInput);
-  applyGridClampToInput(rowsInput);
-  columnsN = parseInt(columnsInput.value, 10);
-  rowsN = parseInt(rowsInput.value, 10);
-
-  window.isInputNumber = onGridInputKeypress;
-  window.isFromTo = function (el) {
-    applyGridClampToInput(el);
-  };
+  applyGridFromControl();
 })();
