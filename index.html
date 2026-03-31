@@ -5,17 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <link rel="stylesheet" href="css/analyser.css">
-  <title>Cyber Party</title>
+  <title>CYBER PARTY</title>
 </head>
 <body>
   <button type="button" class="start-screen" id="experience-start">Start</button>
-  <header class="site-header">
+  <header class="site-header" role="banner">
+    <span class="site-header__spacer" aria-hidden="true"></span>
     <h1 class="site-header__title">CYBER PARTY</h1>
+    <div class="site-header__actions">
+      <button type="button" class="player__fullscreen-btn" id="fullscreen-enter">Fullscreen</button>
+    </div>
   </header>
   <div class="player">
     <div class="player__spectrum-shell" id="spectrum-fullscreen-root">
       <div class="player__spectrum-toolbar">
-        <button type="button" class="player__fullscreen-btn" id="fullscreen-enter">Fullscreen</button>
         <button type="button" class="player__fullscreen-btn" id="fullscreen-exit" hidden>Exit fullscreen</button>
       </div>
       <canvas id="spectrum-canvas" class="spectrum-canvas" width="800" height="450"></canvas>
