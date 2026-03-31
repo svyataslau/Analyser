@@ -272,4 +272,97 @@
 
   populateTrackSelect();
   applyGridFromControl();
+
+  var spectrumShell = document.getElementById('spectrum-fullscreen-root');
+  var fullscreenEnter = document.getElementById('fullscreen-enter');
+  var fullscreenExit = document.getElementById('fullscreen-exit');
+  var PSEUDO_FS = 'player__spectrum-shell--pseudo-fs';
+
+  function inExpandedView() {
+    if (!spectrumShell) return false;
+    if (spectrumShell.classList.contains(PSEUDO_FS)) return true;
+    return (
+      document.fullscreenElement === spectrumShell ||
+      document.webkitFullscreenElement === spectrumShell
+    );
+  }
+
+  function syncFullscreenButtons() {
+    var on = inExpandedView();
+    if (fullscreenEnter) fullscreenEnter.hidden = on;
+    if (fullscreenExit) fullscreenExit.hidden = !on;
+  }
+
+  function usePseudoFullscreen() {
+    spectrumShell.classList.add(PSEUDO_FS);
+    document.body.classList.add('body--spectrum-expanded');
+    syncFullscreenButtons();
+  }
+
+  function enterExpandedView() {
+    if (!spectrumShell) return;
+    var req = spectrumShell.requestFullscreen || spectrumShell.webkitRequestFullscreen;
+    if (req) {
+      try {
+        var result = req.call(spectrumShell);
+        if (result && typeof result.then === 'function') {
+          result
+            .then(function () {
+              spectrumShell.classList.remove(PSEUDO_FS);
+              document.body.classList.remove('body--spectrum-expanded');
+              syncFullscreenButtons();
+            })
+            .catch(function () {
+              usePseudoFullscreen();
+            });
+          return;
+        }
+      } catch (e) {
+        usePseudoFullscreen();
+        return;
+      }
+    }
+    usePseudoFullscreen();
+  }
+
+  function exitExpandedView() {
+    if (!spectrumShell) return;
+    var nativeOn =
+      document.fullscreenElement === spectrumShell ||
+      document.webkitFullscreenElement === spectrumShell;
+    if (nativeOn) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(function () {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+    spectrumShell.classList.remove(PSEUDO_FS);
+    document.body.classList.remove('body--spectrum-expanded');
+    syncFullscreenButtons();
+  }
+
+  function onFullscreenEvent() {
+    if (!spectrumShell) return;
+    var el = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!el) {
+      spectrumShell.classList.remove(PSEUDO_FS);
+      document.body.classList.remove('body--spectrum-expanded');
+    }
+    syncFullscreenButtons();
+  }
+
+  if (fullscreenEnter) fullscreenEnter.addEventListener('click', enterExpandedView);
+  if (fullscreenExit) fullscreenExit.addEventListener('click', exitExpandedView);
+
+  document.addEventListener('fullscreenchange', onFullscreenEvent);
+  document.addEventListener('webkitfullscreenchange', onFullscreenEvent);
+
+  document.addEventListener('keydown', function (evt) {
+    if (evt.key === 'Escape' && inExpandedView()) {
+      exitExpandedView();
+    }
+  });
+
+  syncFullscreenButtons();
 })();

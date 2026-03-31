@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <link rel="stylesheet" href="css/analyser.css">
   <title>Cyber Party</title>
@@ -13,7 +13,13 @@
     <h1 class="site-header__title">CYBER PARTY</h1>
   </header>
   <div class="player">
-    <canvas id="spectrum-canvas" class="spectrum-canvas" width="800" height="450"></canvas>
+    <div class="player__spectrum-shell" id="spectrum-fullscreen-root">
+      <div class="player__spectrum-toolbar">
+        <button type="button" class="player__fullscreen-btn" id="fullscreen-enter">Fullscreen</button>
+        <button type="button" class="player__fullscreen-btn" id="fullscreen-exit" hidden>Exit fullscreen</button>
+      </div>
+      <canvas id="spectrum-canvas" class="spectrum-canvas" width="800" height="450"></canvas>
+    </div>
 
     <section class="player__section">
       <div class="player__music-row">
