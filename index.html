@@ -4,208 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <style type="text/css">
-    @import url('https://fonts.googleapis.com/css?family=Quantico:400,700&display=swap');
-  *{
-    background-color: #000;
-  }
-  .Player { 
-    width: 800px; 
-    background: #C0C0C0;
-    padding: 6px; 
-    margin: 0 auto; 
-  }
-  #analyserBox { 
-    background:#000;
-  }
-  .panel {
-    margin-top: 8px;
-    height: 30px;
-    width: auto; 
-    padding: 4px;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-  }
-  audio {
-    float: left;
-    width: 100%;
-  }
-  #colorRange {
-    width: 790px;
-  }
-  #searchBox:hover {
-    cursor: pointer;
-    font-size: 20px;
-  }
-  .logo {
-    font-size: 35px;
-  }
-  .logo, .label, #btnConstruct {
-    color: #C0C0C0;
-    text-transform: uppercase;
-    font-family: 'Quantico', sans-serif;
-    font-weight: 700;
-  }
-  .inputSize {
-    margin: 10px;
-    width: 60px;
-  }
-  #btnConstruct {
-    height: 20px;
-    width: 50px;
-    background-color: #696969;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-  }
-  #btnConstruct:hover {
-    background-color: #C0C0C0;
-    color: #000;
-    cursor: pointer;
-  }
-  #trackBox {
-    height: 60px;
-  }
-  button {
-    position: absolute;
-    z-index: 1;
-    float: center;
-    height: 100%;
-    width: 100%;
-    color: #C0C0C0;
-    text-transform: uppercase;
-    font-family: 'Quantico', sans-serif;
-    font-weight: 700;
-    font-size: 50px;
-  }
-  </style>
+  <link rel="stylesheet" href="css/analyser.css">
   <title>Cyber Party</title>
 </head>
 <body>
-  <button>Start</button>
-  <div class="Player">
-    <div class="panel logo">Cyber ​​party</div>
-    <canvas id="analyserBox" width="800" height="450"></canvas>
-    <div class="panel" id="searchBox">
-      <label for="myfile" class="label">upload your track</label>
-      <input type="file" name="myfile" id="mp3" accept=".mp3" hidden/>
+  <button type="button" class="start-screen" id="experience-start">Start</button>
+  <header class="site-header">
+    <h1 class="site-header__title">CYBER PARTY</h1>
+  </header>
+  <div class="player">
+    <canvas id="spectrum-canvas" class="spectrum-canvas" width="800" height="450"></canvas>
+    <div class="player__panel player__panel--upload" id="upload-trigger" role="button" tabindex="0">
+      <label for="track-file-input" class="player__label">Upload your track</label>
+      <input type="file" id="track-file-input" name="track-file-input" accept=".mp3,audio/mpeg" hidden>
     </div>
-    <div class="panel" id="sizeBox">
-      <input class="inputSize" type="number" id="column" value="20" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
-      <label class="label">x</label>
-      <input class="inputSize" type="number" id="row" value="10" maxlength="2" style="color: #C0C0C0" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
-      <div id="btnConstruct">build</div>
+    <div class="player__panel player__track-row">
+      <label for="library-track-select" class="player__label">Library</label>
+      <select id="library-track-select" class="player__track-picker" aria-label="Built-in track"></select>
     </div>
-    <div class="panel" id="colorBox">
-      <input id="colorRange" type="range" min="0" max="360" step="1" oninput="colorRange()">
+    <div class="player__panel">
+      <div class="player__grid-fields">
+        <input class="player__field-dimension" type="number" id="grid-columns-input" value="20" min="10" max="100" inputmode="numeric" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
+        <span class="player__field-separator">×</span>
+        <input class="player__field-dimension" type="number" id="grid-rows-input" value="10" min="10" max="100" inputmode="numeric" onkeypress="isInputNumber(event)" onkeyup="isFromTo(this)">
+        <button type="button" class="player__build-button" id="grid-build-button">Build</button>
+      </div>
     </div>
-    <div class="panel" id="trackBox">
-      <audio id="track" src="track.mp3" controls loop crossorigin="anonymous"></audio>
+    <div class="player__panel">
+      <input id="hue-range-input" class="player__hue-range" type="range" min="0" max="360" step="1" oninput="colorRange()">
+    </div>
+    <div class="player__panel player__track-row">
+      <audio id="spectrum-audio" class="player__audio" controls controlsList="nodownload" loop crossorigin="anonymous" draggable="false"></audio>
     </div>
   </div>
-  <script>
-let audio = document.getElementById('track');
-let mp3Element = document.getElementById('mp3');
-let btnUpload = document.getElementById('searchBox');
-let btnConstruct = document.getElementById('btnConstruct');
-let row = document.getElementById('row');
-let column = document.getElementById('column');
-let rowsN = 10, columnsN = 20;
-let canvas, ctx, source, context, analyser, bars, bar_x, bar_height;
-
-function isFromTo(num) {
-  if (num.value > 20) {
-    num.value = 20;
-  }
-  if (num.value < 1) {
-    num.value = 1;
-  }
-}
-
-btnUpload.addEventListener('click', () => {
-  mp3Element.click();
-});
-
-mp3Element.addEventListener('change', () => {
-  if (mp3Element.files && mp3Element.files[0]) {
-    const file = mp3Element.files[0];
-    const url = URL.createObjectURL(file);
-    audio.src = url;
-  }
-});
-
-function isInputNumber(text) {
-  let ch = String.fromCharCode(text.which);
-  if (!(/[0-9]/.test(ch))) {
-    text.preventDefault();
-  }
-}
-
-btnConstruct.addEventListener('click', () => {
-  rowsN = row.value;
-  columnsN = column.value;
-});
-
-document.querySelector('button').addEventListener('click', () => {
-  canvasConstruct();
-  document.querySelector('button').style.display = 'none';
-});
-
-function canvasConstruct() {
-  context = new AudioContext();
-  analyser = context.createAnalyser();
-  canvas = document.getElementById('analyserBox');
-  ctx = canvas.getContext('2d');
-  source = context.createMediaElementSource(audio);
-  source.connect(analyser);
-  analyser.connect(context.destination);
-  frameLooper();
-}
-
-function frameLooper() {
-  window.requestAnimationFrame(frameLooper);
-  let array = new Uint8Array (analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(array);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'hsl(' + getRandomColor(colorRange()) + ',100%, 63%)';
-  ctx.lineWidth = 3;
-  bars = columnsN;
-  for (let i = 0; i < bars; i++) {
-    bar_height = -(array[i]*(canvas.height/255));
-    let step = 450/rowsN;
-    let zero = 0;
-    let Oy = canvas.height;
-    bar_x = i*step;
-
-    for (let j = 0; j < rowsN; j++) {
-      if (bar_height<-zero && bar_height>-(zero+step)) {
-        ctx.fillRect(bar_x, Oy-step, step,canvas.height);
-      }
-      zero+=step;
-      Oy-=step;
-    }
-
-    ctx.strokeStyle = '#000';
-    for (let i=0; i<1000; i=i+step) {
-      for (let j=0; j<1000; j=j+step) {
-        ctx.strokeRect(i, j, step, step);
-      }
-    }
-  }
-}
-
-function getRandomColor(percent) {
-  let min = Math.ceil(percent-30);
-  let max = Math.floor(percent);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function colorRange() {
-  return document.getElementById('colorRange').value;
-}
-  </script>
+  <script src="js/analyser.js"></script>
 </body>
 </html>
