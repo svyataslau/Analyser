@@ -13,7 +13,8 @@
   var MUSIC_LIBRARY = [
     { label: 'Kacha - Złote Tarasy', file: 'warsaw.mp3', coverArt: 'kacha.png' },
     { label: 'Toto — Africa', file: 'Toto - Africa.mp3', coverArt: 'toto.png' },
-    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.png' }
+    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.png' },
+    { label: 'Женя Трофимов — Самолеты', file: 'Женя Трофимов - Самолеты.mp3' }
   ];
 
   var audioEl = document.getElementById('spectrum-audio');
@@ -110,10 +111,16 @@
         break;
       }
     }
-    if (!entry || !entry.coverArt) {
+    if (!entry) {
       albumFigure.classList.add('player__album--placeholder');
       albumImg.removeAttribute('src');
       albumImg.alt = '';
+      return;
+    }
+    if (!entry.coverArt) {
+      albumFigure.classList.remove('player__album--placeholder');
+      albumImg.alt = entry.label;
+      albumImg.src = ASSETS_BASE + UNKNOWN_ALBUM_ART;
       return;
     }
     albumFigure.classList.remove('player__album--placeholder');
