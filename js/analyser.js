@@ -11,10 +11,11 @@
    * Browsers cannot enumerate directories over HTTP.
    */
   var MUSIC_LIBRARY = [
-    { label: 'Kacha - Złote Tarasy', file: 'warsaw.mp3', coverArt: 'kacha.png' },
-    { label: 'Toto — Africa', file: 'Toto - Africa.mp3', coverArt: 'toto.png' },
-    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.png' },
-    { label: 'Женя Трофимов — Самолеты', file: 'Женя Трофимов - Самолеты.mp3' }
+    { label: 'Gorillaz - New Gold (feat. Tame Impala and Bootie Brown)', file: 'Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).mp3', coverArt: 'gorillaz.jpg' },
+    { label: 'Kacha - Złote Tarasy', file: 'warsaw.mp3', coverArt: 'kacha.jpg' },
+    { label: 'Toto — Africa', file: 'Toto - Africa.mp3', coverArt: 'toto.jpg' },
+    { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.jpg' },
+    { label: 'Женя Трофимов — Самолеты', file: 'Женя Трофимов - Самолеты.mp3' },
   ];
 
   var audioEl = document.getElementById('spectrum-audio');
@@ -24,8 +25,10 @@
   var uploadTrigger = document.getElementById('upload-trigger');
   var gridDensityRange = document.getElementById('grid-density-range');
   var trackSelect = document.getElementById('library-track-select');
-  var hueRange = document.getElementById('hue-range-input');
   var startScreen = document.getElementById('experience-start');
+  var bgUploadTrigger = document.getElementById('bg-upload-trigger');
+  var bgFileInput = document.getElementById('bg-file-input');
+  var bgRemoveBtn = document.getElementById('bg-remove-btn');
 
   if (albumImg) {
     albumImg.addEventListener('error', function () {
@@ -95,12 +98,14 @@
       albumFigure.classList.add('player__album--placeholder');
       albumImg.removeAttribute('src');
       albumImg.alt = '';
+      applyDefaultBackground();
       return;
     }
     if (v === CUSTOM_VALUE) {
       albumFigure.classList.remove('player__album--placeholder');
       albumImg.alt = 'Unknown album';
       albumImg.src = ASSETS_BASE + UNKNOWN_ALBUM_ART;
+      applyDefaultBackground();
       return;
     }
     var entry = null;
@@ -115,17 +120,20 @@
       albumFigure.classList.add('player__album--placeholder');
       albumImg.removeAttribute('src');
       albumImg.alt = '';
+      applyDefaultBackground();
       return;
     }
     if (!entry.coverArt) {
       albumFigure.classList.remove('player__album--placeholder');
       albumImg.alt = entry.label;
       albumImg.src = ASSETS_BASE + UNKNOWN_ALBUM_ART;
+      applyDefaultBackground();
       return;
     }
     albumFigure.classList.remove('player__album--placeholder');
     albumImg.alt = entry.label + ' album art';
     albumImg.src = ASSETS_BASE + entry.coverArt;
+    applyDefaultBackground();
   }
 
   function ensureCustomUploadOption() {
@@ -181,18 +189,184 @@
     updateAlbumArt();
   });
 
-  function getHueBase() {
-    return parseInt(hueRange.value, 10) || 0;
+  var userBgActive = false;
+  var currentBgObjectUrl = null;
+
+  function setCssBg(url) {
+    document.body.style.backgroundImage = 'url("' + url + '")';
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.classList.add('body--custom-bg');
+    document.documentElement.style.setProperty('--bg-image', 'url("' + url + '")');
   }
 
-  window.colorRange = function () {
-    return getHueBase();
-  };
+  function clearCssBg() {
+    document.body.style.backgroundImage = '';
+    document.body.style.backgroundSize = '';
+    document.body.style.backgroundPosition = '';
+    document.body.classList.remove('body--custom-bg');
+    document.documentElement.style.removeProperty('--bg-image');
+  }
 
-  function randomHueNearBase(percent) {
-    var min = Math.ceil(percent - 30);
-    var max = Math.floor(percent);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  function getAutoBgUrl() {
+    var v = trackSelect.value;
+    if (!v || v === CUSTOM_VALUE) return null;
+    var k;
+    for (k = 0; k < MUSIC_LIBRARY.length; k++) {
+      if (MUSIC_LIBRARY[k].file === v && MUSIC_LIBRARY[k].coverArt) {
+        return new URL(ASSETS_BASE + MUSIC_LIBRARY[k].coverArt, document.baseURI).href;
+      }
+    }
+    return null;
+  }
+
+  function applyDefaultBackground() {
+    if (userBgActive) return;
+    var url = getAutoBgUrl();
+    if (url) {
+      setCssBg(url);
+    } else {
+      clearCssBg();
+    }
+  }
+
+  function applyBackground(url) {
+    if (currentBgObjectUrl) URL.revokeObjectURL(currentBgObjectUrl);
+    currentBgObjectUrl = url;
+    userBgActive = true;
+    setCssBg(url);
+    if (bgRemoveBtn) bgRemoveBtn.hidden = false;
+  }
+
+  function clearBackground() {
+    if (currentBgObjectUrl) {
+      URL.revokeObjectURL(currentBgObjectUrl);
+      currentBgObjectUrl = null;
+    }
+    userBgActive = false;
+    if (bgRemoveBtn) bgRemoveBtn.hidden = true;
+    if (bgFileInput) bgFileInput.value = '';
+    applyDefaultBackground();
+  }
+
+  if (bgUploadTrigger) {
+    bgUploadTrigger.addEventListener('click', function () {
+      bgFileInput.click();
+    });
+    bgUploadTrigger.addEventListener('keydown', function (evt) {
+      if (evt.key === 'Enter' || evt.key === ' ') {
+        evt.preventDefault();
+        bgFileInput.click();
+      }
+    });
+  }
+
+  if (bgFileInput) {
+    bgFileInput.addEventListener('change', function () {
+      if (bgFileInput.files && bgFileInput.files[0]) {
+        applyBackground(URL.createObjectURL(bgFileInput.files[0]));
+      }
+    });
+  }
+
+  if (bgRemoveBtn) {
+    bgRemoveBtn.addEventListener('click', function () {
+      clearBackground();
+    });
+  }
+
+  var DEFAULT_GRADIENT_COLORS = ['#ff00aa', '#00eeff', '#aaff00'];
+  var gradientColors = DEFAULT_GRADIENT_COLORS.slice();
+
+  var colorRow = document.getElementById('gradient-color-row');
+  var addColorBtn = document.getElementById('gradient-add-color');
+
+  function renderColorSwatches() {
+    var existingWraps = colorRow.querySelectorAll('.player__color-swatch-wrap');
+    var w;
+    for (w = 0; w < existingWraps.length; w++) {
+      colorRow.removeChild(existingWraps[w]);
+    }
+    gradientColors.forEach(function (color, idx) {
+      var wrap = document.createElement('div');
+      wrap.className = 'player__color-swatch-wrap';
+
+      var swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'player__color-swatch';
+      swatch.style.background = color;
+      swatch.title = color;
+
+      var inp = document.createElement('input');
+      inp.type = 'color';
+      inp.className = 'player__color-input';
+      inp.value = color;
+
+      (function (index, swatchEl, inputEl) {
+        swatchEl.addEventListener('click', function () { inputEl.click(); });
+        inputEl.addEventListener('input', function () {
+          gradientColors[index] = inputEl.value;
+          swatchEl.style.background = inputEl.value;
+          swatchEl.title = inputEl.value;
+        });
+      }(idx, swatch, inp));
+
+      wrap.appendChild(swatch);
+      wrap.appendChild(inp);
+
+      if (gradientColors.length > 2) {
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'player__color-remove-btn';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remove color';
+        (function (index) {
+          removeBtn.addEventListener('click', function () {
+            gradientColors.splice(index, 1);
+            renderColorSwatches();
+          });
+        }(idx));
+        wrap.appendChild(removeBtn);
+      }
+
+      colorRow.insertBefore(wrap, addColorBtn);
+    });
+    addColorBtn.hidden = gradientColors.length >= 8;
+  }
+
+  if (addColorBtn) {
+    addColorBtn.addEventListener('click', function () {
+      if (gradientColors.length < 8) {
+        gradientColors.push('#ffffff');
+        renderColorSwatches();
+        var wraps = colorRow.querySelectorAll('.player__color-swatch-wrap');
+        var lastWrap = wraps[wraps.length - 1];
+        if (lastWrap) {
+          var inp = lastWrap.querySelector('.player__color-input');
+          if (inp) inp.click();
+        }
+      }
+    });
+  }
+
+  renderColorSwatches();
+
+  function buildAnimatedGradient() {
+    var speed = 80;
+    var scroll = ((Date.now() / 1000) * speed) % canvas.height;
+    var n = gradientColors.length;
+    var y0 = -scroll;
+    var y1 = y0 + canvas.height * 2;
+    var grad = ctx.createLinearGradient(0, y0, 0, y1);
+    var cycle, i, stop;
+    for (cycle = 0; cycle < 2; cycle++) {
+      for (i = 0; i < n; i++) {
+        stop = (cycle * n + i) / (n * 2);
+        grad.addColorStop(stop, gradientColors[i]);
+      }
+    }
+    grad.addColorStop(1.0, gradientColors[0]);
+    return grad;
   }
 
   function drawGrid(cellW, cellH) {
@@ -226,9 +400,7 @@
 
     var cellW = canvas.width / columnsN;
     var cellH = canvas.height / rowsN;
-    var hue = getHueBase();
-    var barHue = randomHueNearBase(hue);
-    ctx.fillStyle = 'hsl(' + barHue + ', 100%, 63%)';
+    ctx.fillStyle = buildAnimatedGradient();
 
     var i;
     for (i = 0; i < columnsN; i++) {
@@ -270,6 +442,7 @@
 
   startScreen.addEventListener('click', function () {
     if (!started) {
+      applyDefaultBackground();
       wireAnalyser();
       startScreen.classList.add('start-screen--hidden');
     } else if (audioContext && audioContext.state === 'suspended') {
