@@ -15,7 +15,7 @@
     { label: 'Kacha - Złote Tarasy', file: 'warsaw.mp3', coverArt: 'kacha.jpg' },
     { label: 'Toto — Africa', file: 'Toto - Africa.mp3', coverArt: 'toto.jpg' },
     { label: 'Motörhead — Hellraiser', file: 'Motörhead - Hellraiser.mp3', coverArt: 'motorhead.jpg' },
-    { label: 'Женя Трофимов — Самолеты', file: 'Женя Трофимов - Самолеты.mp3' },
+    { label: 'Женя Трофимов — Самолеты', file: 'Женя Трофимов - Самолеты.mp3', coverArt: 'samolety.jpg' },
   ];
 
   var audioEl = document.getElementById('spectrum-audio');
@@ -291,28 +291,26 @@
       var wrap = document.createElement('div');
       wrap.className = 'player__color-swatch-wrap';
 
-      var swatch = document.createElement('button');
-      swatch.type = 'button';
-      swatch.className = 'player__color-swatch';
-      swatch.style.background = color;
-      swatch.title = color;
+      var label = document.createElement('label');
+      label.className = 'player__color-swatch';
+      label.style.background = color;
+      label.title = color;
 
       var inp = document.createElement('input');
       inp.type = 'color';
       inp.className = 'player__color-input';
       inp.value = color;
 
-      (function (index, swatchEl, inputEl) {
-        swatchEl.addEventListener('click', function () { inputEl.click(); });
+      (function (index, labelEl, inputEl) {
         inputEl.addEventListener('input', function () {
           gradientColors[index] = inputEl.value;
-          swatchEl.style.background = inputEl.value;
-          swatchEl.title = inputEl.value;
+          labelEl.style.background = inputEl.value;
+          labelEl.title = inputEl.value;
         });
-      }(idx, swatch, inp));
+      }(idx, label, inp));
 
-      wrap.appendChild(swatch);
-      wrap.appendChild(inp);
+      label.appendChild(inp);
+      wrap.appendChild(label);
 
       if (gradientColors.length > 2) {
         var removeBtn = document.createElement('button');
@@ -342,8 +340,8 @@
         var wraps = colorRow.querySelectorAll('.player__color-swatch-wrap');
         var lastWrap = wraps[wraps.length - 1];
         if (lastWrap) {
-          var inp = lastWrap.querySelector('.player__color-input');
-          if (inp) inp.click();
+          var lbl = lastWrap.querySelector('.player__color-swatch');
+          if (lbl) lbl.click();
         }
       }
     });
