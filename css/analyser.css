@@ -8,7 +8,7 @@
 
 html {
   background: #000;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body {
@@ -17,7 +17,7 @@ body {
   min-height: 100dvh;
   background: #000;
   font-family: 'Quantico', sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body.body--spectrum-expanded {
