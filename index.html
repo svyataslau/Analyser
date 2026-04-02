@@ -29,6 +29,17 @@
   </header>
   <div class="player">
     <div class="player-layout">
+    <aside class="player-features" id="player-features" aria-label="Features">
+      <div class="player-features__title">FEATURES</div>
+      <ul class="player-features__list">
+        <li class="player-features__item">Fullscreen spectrum &amp; dance floor</li>
+        <li class="player-features__item">Queue: NOW / NEXT, drag to reorder</li>
+        <li class="player-features__item">Repeat · Off / One / All</li>
+        <li class="player-features__item">CLUB mode &amp; custom dancer GIFs</li>
+        <li class="player-features__item">Upload bangers &amp; backgrounds</li>
+        <li class="player-features__item">Gradient colors &amp; grid density</li>
+      </ul>
+    </aside>
     <div class="player-layout__main">
     <div class="player__spectrum-shell" id="spectrum-fullscreen-root">
       <div class="player__spectrum-toolbar">
@@ -118,9 +129,9 @@
           <span class="player-queue__upload-text">Upload Banger</span>
           <input type="file" id="queue-file-input" accept=".mp3,audio/mpeg" hidden>
         </label>
-        <div class="player-queue__add-row">
-          <select id="queue-add-select" class="player-queue__add-select" aria-label="Add library track to queue"></select>
-          <button type="button" class="player-queue__add-btn" id="queue-add-btn">Add</button>
+        <div class="player-queue__library-wrap" id="queue-library-wrap">
+          <button type="button" class="player-queue__library-btn" id="queue-library-btn" aria-expanded="false" aria-haspopup="listbox" aria-controls="queue-library-list">LIBRARY</button>
+          <ul class="player-queue__library-list" id="queue-library-list" role="listbox" aria-label="Library tracks" hidden></ul>
         </div>
       </div>
     </aside>

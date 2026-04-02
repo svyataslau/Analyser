@@ -46,8 +46,9 @@
   var queueNowInner = document.getElementById('queue-now-inner');
   var queueNextList = document.getElementById('queue-next-list');
   var queueFileInput = document.getElementById('queue-file-input');
-  var queueAddSelect = document.getElementById('queue-add-select');
-  var queueAddBtn = document.getElementById('queue-add-btn');
+  var queueLibraryWrap = document.getElementById('queue-library-wrap');
+  var queueLibraryBtn = document.getElementById('queue-library-btn');
+  var queueLibraryList = document.getElementById('queue-library-list');
   var queueRepeatBtn = document.getElementById('queue-repeat-btn');
 
   if (albumImg) {
@@ -523,18 +524,33 @@
     }
   }
 
-  function populateQueueAddSelect() {
-    if (!queueAddSelect) return;
-    queueAddSelect.innerHTML = '';
-    var ph = document.createElement('option');
-    ph.value = '';
-    ph.textContent = 'Add track\u2026';
-    queueAddSelect.appendChild(ph);
+  var queueLibraryMenuOpen = false;
+
+  function setQueueLibraryMenuOpen(open) {
+    queueLibraryMenuOpen = !!open;
+    if (queueLibraryList) queueLibraryList.hidden = !queueLibraryMenuOpen;
+    if (queueLibraryBtn) {
+      queueLibraryBtn.setAttribute('aria-expanded', queueLibraryMenuOpen ? 'true' : 'false');
+      queueLibraryBtn.classList.toggle('player-queue__library-btn--open', queueLibraryMenuOpen);
+    }
+  }
+
+  function populateQueueLibraryList() {
+    if (!queueLibraryList) return;
+    queueLibraryList.innerHTML = '';
     MUSIC_LIBRARY.forEach(function (e) {
-      var o = document.createElement('option');
-      o.value = e.file;
-      o.textContent = e.label;
-      queueAddSelect.appendChild(o);
+      var li = document.createElement('li');
+      li.className = 'player-queue__library-item';
+      li.setAttribute('role', 'option');
+      li.dataset.file = e.file;
+      li.textContent = e.label;
+      li.addEventListener('click', function (evt) {
+        evt.stopPropagation();
+        playbackQueue.push(makeLibraryQueueItem(e.file));
+        renderPlaybackQueueUI();
+        setQueueLibraryMenuOpen(false);
+      });
+      queueLibraryList.appendChild(li);
     });
   }
 
@@ -601,7 +617,7 @@
       opt.textContent = entry.label;
       trackSelect.appendChild(opt);
     });
-    populateQueueAddSelect();
+    populateQueueLibraryList();
     if (MUSIC_LIBRARY.length) {
       playbackQueue = buildDefaultPlaybackQueue();
       syncTrackSelectToQueueHead();
@@ -670,15 +686,21 @@
     });
   }
 
-  if (queueAddBtn && queueAddSelect) {
-    queueAddBtn.addEventListener('click', function () {
-      var vf = queueAddSelect.value;
-      if (!vf) return;
-      playbackQueue.push(makeLibraryQueueItem(vf));
-      renderPlaybackQueueUI();
-      queueAddSelect.value = '';
+  if (queueLibraryBtn) {
+    queueLibraryBtn.addEventListener('click', function (evt) {
+      evt.stopPropagation();
+      setQueueLibraryMenuOpen(!queueLibraryMenuOpen);
     });
   }
+
+  document.addEventListener('mousedown', function (evt) {
+    if (!queueLibraryMenuOpen || !queueLibraryWrap) return;
+    if (!queueLibraryWrap.contains(evt.target)) setQueueLibraryMenuOpen(false);
+  });
+
+  document.addEventListener('keydown', function (evt) {
+    if (evt.key === 'Escape' && queueLibraryMenuOpen) setQueueLibraryMenuOpen(false);
+  });
 
   var queueUploadLabel = document.querySelector('.player-queue__upload');
   if (queueUploadLabel && queueFileInput) {
