@@ -12,8 +12,8 @@
   var PRESET_ORDER = ['FUN', 'CAT', 'HOT', 'SAD'];
   var PRESETS = {
     FUN: { dir: 'assets/presets/fun-preset/', loadedGifs: [], gifs: [], enabled: true },
-    CAT: { dir: 'assets/presets/cat-preset/', loadedGifs: [], gifs: [], enabled: false },
-    HOT: { dir: 'assets/presets/hot-preset/', loadedGifs: [], gifs: [], enabled: false },
+    CAT: { dir: 'assets/presets/cat-preset/', loadedGifs: [], gifs: [], enabled: true },
+    HOT: { dir: 'assets/presets/hot-preset/', loadedGifs: [], gifs: [], enabled: true },
     SAD: { dir: 'assets/presets/sad-preset/', loadedGifs: [], gifs: [], enabled: false },
   };
   var CLUB_MAX_DANCERS        = 5;
@@ -22,14 +22,14 @@
   var CLUB_MAX_MS             = 5000;
   var CLUB_DANCER_SIZES       = ['33vh', '66vh', '100vh'];
   /** Portrait/narrow UI: dancer height follows viewport width (not vh). */
-  var CLUB_DANCER_SIZES_MOBILE = ['33vw', '66vw'];
+  var CLUB_DANCER_SIZES_MOBILE = ['33vw'];
   var CLUB_MOBILE_MAX_WIDTH   = 880;
-  var CLUB_EXTRA_MIN_INTERVAL = 90000;
-  var CLUB_EXTRA_MAX_INTERVAL = 120000;
+  var CLUB_EXTRA_MIN_INTERVAL = 30000;
+  var CLUB_EXTRA_MAX_INTERVAL = 50000;
   var CLUB_EXTRA_SHOW_MS      = 6000;
   var DEFAULT_EXTRA_GIFS = [];
   var EXTRA_GIFS         = [];
-  var extraEnabled       = false;
+  var extraEnabled       = true;
 
   var onGradientUpdate = null;
 
@@ -1315,6 +1315,12 @@
     return window.innerWidth <= CLUB_MOBILE_MAX_WIDTH;
   }
 
+  /** Slower dancer spawns on mobile when not in fullscreen spectrum. */
+  function clubSpawnIntervalMultiplier() {
+    if (inExpandedView()) return 1;
+    return isMobileDancerViewport() ? 2 : 1;
+  }
+
   function getDancerZone() {
     var isMobile = window.innerWidth <= 480;
     if (isMobile || inExpandedView()) return 'canvas';
@@ -1413,7 +1419,8 @@
       ? CLUB_MIN_DANCERS - clubDancerCount
       : (clubDancerCount < CLUB_MAX_DANCERS && Math.random() < 0.55 ? 1 : 0);
     for (var ci = 0; ci < toSpawn; ci++) spawnDancer(gen);
-    setTimeout(function () { clubTick(gen); }, 700 + Math.random() * 1300);
+    var tickDelay = (700 + Math.random() * 1300) * clubSpawnIntervalMultiplier();
+    setTimeout(function () { clubTick(gen); }, tickDelay);
   }
 
   function removeAllDancers() {
