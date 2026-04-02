@@ -21,6 +21,9 @@
   var CLUB_MIN_MS             = 3000;
   var CLUB_MAX_MS             = 5000;
   var CLUB_DANCER_SIZES       = ['33vh', '66vh', '100vh'];
+  /** Portrait/narrow UI: dancer height follows viewport width (not vh). */
+  var CLUB_DANCER_SIZES_MOBILE = ['33vw', '66vw'];
+  var CLUB_MOBILE_MAX_WIDTH   = 880;
   var CLUB_EXTRA_MIN_INTERVAL = 90000;
   var CLUB_EXTRA_MAX_INTERVAL = 120000;
   var CLUB_EXTRA_SHOW_MS      = 6000;
@@ -50,6 +53,7 @@
   var queueLibraryBtn = document.getElementById('queue-library-btn');
   var queueLibraryList = document.getElementById('queue-library-list');
   var queueRepeatBtn = document.getElementById('queue-repeat-btn');
+  var uploadBusyOverlay = document.getElementById('upload-busy-overlay');
 
   if (albumImg) {
     albumImg.addEventListener('error', function () {
@@ -629,26 +633,73 @@
     updateAlbumArt();
   }
 
+  function setUploadBusyVisible(visible) {
+    if (!uploadBusyOverlay) return;
+    if (visible) {
+      uploadBusyOverlay.removeAttribute('hidden');
+    } else {
+      uploadBusyOverlay.setAttribute('hidden', '');
+    }
+  }
+
+  function filterMp3FileList(fileList) {
+    var out = [];
+    var i;
+    if (!fileList || !fileList.length) return out;
+    for (i = 0; i < fileList.length; i++) {
+      var f = fileList[i];
+      var nameLower = (f.name || '').toLowerCase();
+      if (f.type === 'audio/mpeg' || nameLower.endsWith('.mp3')) out.push(f);
+    }
+    return out;
+  }
+
+  /**
+   * @param {File[]} files - .mp3 / audio/mpeg only
+   * @param {{ preservePlaying?: boolean, autoplay?: boolean }} opts
+   */
+  function addMp3UploadsToQueueFront(files, opts) {
+    if (!files.length) return;
+    opts = opts || {};
+    var preservePlaying = !!opts.preservePlaying;
+    var autoplay = !!opts.autoplay;
+    var wasPlaying = audioEl && !audioEl.paused;
+    setUploadBusyVisible(true);
+    window.setTimeout(function () {
+      try {
+        var i;
+        for (i = files.length - 1; i >= 0; i--) {
+          var file = files[i];
+          var url = URL.createObjectURL(file);
+          playbackQueue.unshift(makeUploadQueueItem(url, file.name));
+        }
+        syncTrackSelectToQueueHead();
+        if (preservePlaying) {
+          loadAudioFromQueueHead(wasPlaying);
+          if (wasPlaying && audioEl) audioEl.play().catch(function () {});
+        } else if (autoplay) {
+          loadAudioFromQueueHead(true);
+          if (audioEl) audioEl.play().catch(function () {});
+        } else {
+          loadAudioFromQueueHead(false);
+        }
+        renderPlaybackQueueUI();
+        updateAlbumArt();
+      } finally {
+        setUploadBusyVisible(false);
+      }
+    }, 0);
+  }
+
   uploadTrigger.addEventListener('click', function () {
     fileInput.click();
   });
 
   fileInput.addEventListener('change', function () {
-    if (fileInput.files && fileInput.files[0]) {
-      var file = fileInput.files[0];
-      var url = URL.createObjectURL(file);
-      var opt = ensureCustomUploadOption();
-      opt.textContent = file.name;
-      opt.title = file.name;
-      playbackQueue.unshift(makeUploadQueueItem(url, file.name));
-      trackSelect.value = CUSTOM_VALUE;
-      var wasPlaying = !audioEl.paused;
-      loadAudioFromQueueHead(wasPlaying);
-      if (wasPlaying) audioEl.play().catch(function () {});
-      renderPlaybackQueueUI();
-      updateAlbumArt();
-      fileInput.value = '';
-    }
+    var files = filterMp3FileList(fileInput.files);
+    fileInput.value = '';
+    if (!files.length) return;
+    addMp3UploadsToQueueFront(files, { preservePlaying: true });
   });
 
   trackSelect.addEventListener('change', function () {
@@ -669,20 +720,10 @@
 
   if (queueFileInput) {
     queueFileInput.addEventListener('change', function () {
-      if (queueFileInput.files && queueFileInput.files[0]) {
-        var qf = queueFileInput.files[0];
-        var qurl = URL.createObjectURL(qf);
-        var qopt = ensureCustomUploadOption();
-        qopt.textContent = qf.name;
-        qopt.title = qf.name;
-        playbackQueue.unshift(makeUploadQueueItem(qurl, qf.name));
-        trackSelect.value = CUSTOM_VALUE;
-        loadAudioFromQueueHead(true);
-        audioEl.play().catch(function () {});
-        renderPlaybackQueueUI();
-        updateAlbumArt();
-        queueFileInput.value = '';
-      }
+      var qFiles = filterMp3FileList(queueFileInput.files);
+      queueFileInput.value = '';
+      if (!qFiles.length) return;
+      addMp3UploadsToQueueFront(qFiles, { autoplay: true });
     });
   }
 
@@ -1270,6 +1311,10 @@
 
   onGradientUpdate = function () { if (clubActive) syncClubColors(); };
 
+  function isMobileDancerViewport() {
+    return window.innerWidth <= CLUB_MOBILE_MAX_WIDTH;
+  }
+
   function getDancerZone() {
     var isMobile = window.innerWidth <= 480;
     if (isMobile || inExpandedView()) return 'canvas';
@@ -1296,12 +1341,14 @@
     img.className = 'dancer';
     img.alt       = '';
     img.setAttribute('aria-hidden', 'true');
-    var sizeH = CLUB_DANCER_SIZES[Math.floor(Math.random() * CLUB_DANCER_SIZES.length)];
+    var sizePool = isMobileDancerViewport() ? CLUB_DANCER_SIZES_MOBILE : CLUB_DANCER_SIZES;
+    var sizeIdx = Math.floor(Math.random() * sizePool.length);
+    var sizeH = sizePool[sizeIdx];
     img.style.height = sizeH;
     if (Math.random() < 0.5) img.style.transform = 'scaleX(-1)';
-    if (sizeH === '100vh') {
+    if (sizeIdx === 2) {
       img.style.bottom = '0';
-    } else if (sizeH === '66vh') {
+    } else if (sizeIdx === 1) {
       img.style.bottom = Math.random() * 50 + 'vh';
     } else {
       img.style.bottom = Math.random() * 70 + 'vh';
@@ -1474,6 +1521,7 @@
   var uploadedDancerUrls    = [];
   var dancersModal          = null;
   var dancersModalGrid      = null;
+  var dancersExtraSectionEl   = null;
   var dancersExtraGrid        = null;
   var dancersConfirmEl        = null;
   var dancersCustomAddTrigger = null;
@@ -1569,6 +1617,9 @@
   function renderDancersGrid() {
     renderExtraGrid();
     if (!dancersModalGrid) return;
+    if (dancersExtraSectionEl && dancersExtraSectionEl.parentNode === dancersModalGrid) {
+      dancersModalGrid.removeChild(dancersExtraSectionEl);
+    }
     dancersModalGrid.innerHTML = '';
 
     // CUSTOM section – always first
@@ -1653,6 +1704,9 @@
       section.appendChild(sectionGrid);
       dancersModalGrid.appendChild(section);
     });
+    if (dancersExtraSectionEl) {
+      dancersModalGrid.appendChild(dancersExtraSectionEl);
+    }
     updateDancersSaveButtonVisibility();
   }
 
@@ -1836,9 +1890,10 @@
     dancersSaveBtn = saveBtn;
     saveBtn.addEventListener('click', saveDancers);
 
-    // Extra section
+    // Extra section (appended inside scrollable content after preset GIF sections)
     var extraSection = document.createElement('div');
-    extraSection.className = 'dancers-modal__extra-section';
+    extraSection.className = 'dancers-modal__preset-section dancers-modal__extra-section';
+    dancersExtraSectionEl = extraSection;
 
     var extraHeader = document.createElement('div');
     extraHeader.className = 'dancers-modal__preset-header';
@@ -1937,7 +1992,6 @@
 
     box.appendChild(header);
     box.appendChild(grid);
-    box.appendChild(extraSection);
     box.appendChild(footer);
     box.appendChild(confirm);
     modal.appendChild(box);
