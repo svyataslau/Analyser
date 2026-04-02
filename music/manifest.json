@@ -1,27 +1,42 @@
 [
   {
+    "label": "DJ Asul - Matadora",
+    "file": "DJ Asul - Matadora.mp3",
+    "coverArt": "albums/DJ Asul - Matadora.jpg"
+  },
+  {
     "label": "Gorillaz - New Gold (feat. Tame Impala and Bootie Brown)",
     "file": "Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).mp3",
-    "coverArt": "Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).jpg"
+    "coverArt": "albums/Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).jpg"
   },
   {
     "label": "Kacha - Złote Tarasy",
     "file": "Kacha - Złote Tarasy.mp3",
-    "coverArt": "Kacha - Złote Tarasy.jpg"
+    "coverArt": "albums/Kacha - Złote Tarasy.jpg"
   },
   {
     "label": "Motörhead - Hellraiser",
     "file": "Motörhead - Hellraiser.mp3",
-    "coverArt": "Motörhead - Hellraiser.jpg"
+    "coverArt": "albums/Motörhead - Hellraiser.jpg"
+  },
+  {
+    "label": "NIGHTVI, ION TheFloudy & NVRVYN - Funk Do Malafa (Ultra Slowed)",
+    "file": "NIGHTVI, ION TheFloudy & NVRVYN - Funk Do Malafa (Ultra Slowed).mp3",
+    "coverArt": "albums/NIGHTVI, ION TheFloudy & NVRVYN - Funk Do Malafa (Ultra Slowed).jpg"
   },
   {
     "label": "Toto - Africa",
     "file": "Toto - Africa.mp3",
-    "coverArt": "Toto - Africa.jpg"
+    "coverArt": "albums/Toto - Africa.jpg"
+  },
+  {
+    "label": "Yangyinyue - 弥渡山歌（Midu Echoing） (Super Slowed)",
+    "file": "Yangyinyue - 弥渡山歌（Midu Echoing） (Super Slowed).mp3",
+    "coverArt": "albums/Yangyinyue - 弥渡山歌（Midu Echoing） (Super Slowed).jpg"
   },
   {
     "label": "Женя Трофимов - Самолеты",
     "file": "Женя Трофимов - Самолеты.mp3",
-    "coverArt": "Женя Трофимов - Самолеты.jpg"
+    "coverArt": "albums/Женя Трофимов - Самолеты.jpg"
   }
 ]

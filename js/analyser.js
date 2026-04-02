@@ -9,15 +9,24 @@
   var MUSIC_LIBRARY = [];
 
   var CLUB_GIFS = [];
-  var DEFAULT_DANCER_GIFS = [];
+  var PRESET_ORDER = ['FUN', 'CAT', 'HOT', 'SAD'];
+  var PRESETS = {
+    FUN: { dir: 'assets/presets/fun-preset/', loadedGifs: [], gifs: [], enabled: true },
+    CAT: { dir: 'assets/presets/cat-preset/', loadedGifs: [], gifs: [], enabled: false },
+    HOT: { dir: 'assets/presets/hot-preset/', loadedGifs: [], gifs: [], enabled: false },
+    SAD: { dir: 'assets/presets/sad-preset/', loadedGifs: [], gifs: [], enabled: false },
+  };
   var CLUB_MAX_DANCERS        = 5;
   var CLUB_MIN_DANCERS        = 3;
   var CLUB_MIN_MS             = 3000;
   var CLUB_MAX_MS             = 5000;
   var CLUB_DANCER_SIZES       = ['33vh', '66vh', '100vh'];
-  var CLUB_TWERK_MIN_INTERVAL = 10000;
-  var CLUB_TWERK_MAX_INTERVAL = 25000;
-  var CLUB_TWERK_SHOW_MS      = 6000;
+  var CLUB_EXTRA_MIN_INTERVAL = 90000;
+  var CLUB_EXTRA_MAX_INTERVAL = 120000;
+  var CLUB_EXTRA_SHOW_MS      = 6000;
+  var DEFAULT_EXTRA_GIFS = [];
+  var EXTRA_GIFS         = [];
+  var extraEnabled       = false;
 
   var onGradientUpdate = null;
 
@@ -84,13 +93,6 @@
     audioEl.addEventListener('pause', function () {
       if (audioPlayBtn) audioPlayBtn.textContent = 'PLAY';
       syncFullscreenButtons();
-    });
-  }
-
-  if (audioPlayBtn && audioEl) {
-    audioPlayBtn.addEventListener('click', function () {
-      if (audioEl.paused) { audioEl.play().catch(function () {}); }
-      else { audioEl.pause(); }
     });
   }
 
@@ -167,8 +169,9 @@
   }
 
   var CUSTOM_VALUE = '__custom_upload__';
-  var UNKNOWN_ALBUM_ART = 'unknown_album.png';
-  var UPLOAD_DEFAULT_BG = 'Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).jpg';
+  var UNKNOWN_ALBUM_ART = 'albums/unknown_album.png';
+  var UPLOAD_DEFAULT_BG = 'albums/Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).jpg';
+  var DEFAULT_LIBRARY_TRACK_FILE = 'Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).mp3';
 
   function setAudioFromLibrary(fileName) {
     var wasPlaying = !audioEl.paused;
@@ -239,8 +242,16 @@
       trackSelect.appendChild(opt);
     });
     if (MUSIC_LIBRARY.length) {
-      trackSelect.value = MUSIC_LIBRARY[0].file;
-      setAudioFromLibrary(MUSIC_LIBRARY[0].file);
+      var initialFile = MUSIC_LIBRARY[0].file;
+      var d;
+      for (d = 0; d < MUSIC_LIBRARY.length; d++) {
+        if (MUSIC_LIBRARY[d].file === DEFAULT_LIBRARY_TRACK_FILE) {
+          initialFile = DEFAULT_LIBRARY_TRACK_FILE;
+          break;
+        }
+      }
+      trackSelect.value = initialFile;
+      setAudioFromLibrary(initialFile);
     }
     updateAlbumArt();
   }
@@ -624,15 +635,43 @@
       populateTrackSelect();
     });
 
-  (function loadDanceGifs(n) {
-    var img = new Image();
-    img.onload = function () {
-      CLUB_GIFS.push('assets/dance-girl/dance-girl-' + n + '.gif');
-      loadDanceGifs(n + 1);
-    };
-    img.onerror = function () { DEFAULT_DANCER_GIFS = CLUB_GIFS.slice(); };
-    img.src = 'assets/dance-girl/dance-girl-' + n + '.gif';
-  }(1));
+  function rebuildClubGifs() {
+    CLUB_GIFS.length = 0;
+    PRESET_ORDER.forEach(function (name) {
+      var p = PRESETS[name];
+      if (p.enabled) p.gifs.forEach(function (url) { CLUB_GIFS.push(url); });
+    });
+    uploadedDancerUrls.forEach(function (url) {
+      if (CLUB_GIFS.indexOf(url) === -1) CLUB_GIFS.push(url);
+    });
+  }
+
+  PRESET_ORDER.forEach(function (name) {
+    var p = PRESETS[name];
+    fetch(p.dir + 'manifest.json')
+      .then(function (res) { return res.json(); })
+      .then(function (files) {
+        p.loadedGifs = files.slice();
+        p.gifs = files.slice();
+        if (p.enabled) {
+          files.forEach(function (url) {
+            if (CLUB_GIFS.indexOf(url) === -1) CLUB_GIFS.push(url);
+          });
+        }
+      })
+      .catch(function () {});
+  });
+
+  fetch('assets/extra/manifest.json')
+    .then(function (res) { return res.json(); })
+    .then(function (files) {
+      DEFAULT_EXTRA_GIFS = files.slice();
+      EXTRA_GIFS         = files.slice();
+    })
+    .catch(function () {
+      DEFAULT_EXTRA_GIFS = ['assets/extra/extra-1.gif'];
+      EXTRA_GIFS         = DEFAULT_EXTRA_GIFS.slice();
+    });
 
   applyGridFromControl();
 
@@ -683,22 +722,34 @@
               spectrumShell.classList.remove(PSEUDO_FS);
               document.body.classList.remove('body--spectrum-expanded');
               syncFullscreenButtons();
-              if (clubWasActive) toggleClub();
+              if (clubWasActive) {
+                toggleClub();
+                if (audioEl) audioEl.play().catch(function () {});
+              }
             })
             .catch(function () {
               usePseudoFullscreen();
-              if (clubWasActive) toggleClub();
+              if (clubWasActive) {
+                toggleClub();
+                if (audioEl) audioEl.play().catch(function () {});
+              }
             });
           return;
         }
       } catch (e) {
         usePseudoFullscreen();
-        if (clubWasActive) toggleClub();
+        if (clubWasActive) {
+          toggleClub();
+          if (audioEl) audioEl.play().catch(function () {});
+        }
         return;
       }
     }
     usePseudoFullscreen();
-    if (clubWasActive) toggleClub();
+    if (clubWasActive) {
+      toggleClub();
+      if (audioEl) audioEl.play().catch(function () {});
+    }
   }
 
   function exitExpandedView() {
@@ -717,6 +768,7 @@
     document.body.classList.remove('body--spectrum-expanded');
     clubWasActive = clubActive;
     if (clubActive) toggleClub();
+    if (audioEl && !audioEl.paused) audioEl.pause();
     syncFullscreenButtons();
   }
 
@@ -735,7 +787,9 @@
 
   if (fsPlayBtn) {
     fsPlayBtn.addEventListener('click', function () {
-      if (audioEl) audioEl.play();
+      if (!audioEl) return;
+      if (clubActive) toggleClub();
+      audioEl.play().catch(function () {});
     });
   }
 
@@ -744,9 +798,9 @@
     spectrumCanvas.addEventListener('click', function () {
       if (!inExpandedView() || !audioEl) return;
       if (audioEl.paused) {
-        audioEl.play();
-      } else {
         if (clubActive) toggleClub();
+        audioEl.play().catch(function () {});
+      } else {
         audioEl.pause();
       }
     });
@@ -755,7 +809,6 @@
   if (normalClubBtn) {
     normalClubBtn.addEventListener('click', function () {
       toggleClub();
-      if (clubActive && audioEl && audioEl.paused) audioEl.play();
     });
   }
 
@@ -897,38 +950,44 @@
     clubSpawnIndex  = 0;
   }
 
-  var twerkEl = null;
+  var extraEl    = null;
+  var extraImgEl = null;
 
-  function ensureTwerkEl() {
-    if (twerkEl) return;
-    twerkEl = document.createElement('div');
-    twerkEl.className = 'club-twerk';
-    var twerkImg = document.createElement('img');
-    twerkImg.src = 'assets/dance-girl/twerk.gif';
-    twerkImg.alt = '';
-    twerkImg.setAttribute('aria-hidden', 'true');
-    twerkEl.appendChild(twerkImg);
-    document.body.appendChild(twerkEl);
+  function ensureExtraEl() {
+    if (extraEl) return;
+    extraEl = document.createElement('div');
+    extraEl.className = 'club-extra';
+    extraImgEl = document.createElement('img');
+    extraImgEl.src = EXTRA_GIFS[0] || '';
+    extraImgEl.alt = '';
+    extraImgEl.setAttribute('aria-hidden', 'true');
+    extraEl.appendChild(extraImgEl);
+    document.body.appendChild(extraEl);
   }
 
-  function showTwerk(gen) {
+  function showExtra(gen) {
     if (!clubActive || gen !== clubGeneration) return;
-    ensureTwerkEl();
+    if (!extraEnabled || !EXTRA_GIFS.length) return;
+    ensureExtraEl();
+    if (extraImgEl && EXTRA_GIFS.length) {
+      extraImgEl.src = EXTRA_GIFS[Math.floor(Math.random() * EXTRA_GIFS.length)];
+    }
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        if (twerkEl) twerkEl.classList.add('club-twerk--visible');
+        if (extraEl && extraEnabled) extraEl.classList.add('club-extra--visible');
       });
     });
     setTimeout(function () {
-      if (twerkEl) twerkEl.classList.remove('club-twerk--visible');
-      if (clubActive && gen === clubGeneration) scheduleTwerk(gen);
-    }, CLUB_TWERK_SHOW_MS);
+      if (extraEl) extraEl.classList.remove('club-extra--visible');
+      if (clubActive && gen === clubGeneration && extraEnabled && EXTRA_GIFS.length) scheduleExtra(gen);
+    }, CLUB_EXTRA_SHOW_MS);
   }
 
-  function scheduleTwerk(gen) {
+  function scheduleExtra(gen) {
     if (!clubActive || gen !== clubGeneration) return;
-    var delay = CLUB_TWERK_MIN_INTERVAL + Math.random() * (CLUB_TWERK_MAX_INTERVAL - CLUB_TWERK_MIN_INTERVAL);
-    setTimeout(function () { showTwerk(gen); }, delay);
+    if (!extraEnabled || !EXTRA_GIFS.length) return;
+    var delay = CLUB_EXTRA_MIN_INTERVAL + Math.random() * (CLUB_EXTRA_MAX_INTERVAL - CLUB_EXTRA_MIN_INTERVAL);
+    setTimeout(function () { showExtra(gen); }, delay);
   }
 
   function toggleClub() {
@@ -941,60 +1000,214 @@
       clubDancerCount = 0;
       for (var si = 0; si < CLUB_MIN_DANCERS; si++) spawnDancer(clubGeneration);
       clubTick(clubGeneration);
-      scheduleTwerk(clubGeneration);
+      scheduleExtra(clubGeneration);
     } else {
       removeAllDancers();
-      if (twerkEl) twerkEl.classList.remove('club-twerk--visible');
+      if (extraEl) extraEl.classList.remove('club-extra--visible');
     }
   }
 
   if (clubBtn) {
     clubBtn.addEventListener('click', function () {
-      if (!clubActive) toggleClub();
-      if (audioEl && audioEl.paused) audioEl.play();
+      toggleClub();
+    });
+  }
+
+  if (audioPlayBtn && audioEl) {
+    audioPlayBtn.addEventListener('click', function () {
+      if (audioEl.paused) {
+        if (clubActive) toggleClub();
+        audioEl.play().catch(function () {});
+      } else {
+        audioEl.pause();
+      }
     });
   }
 
   // --- CUSTOMIZE DANCERS MODAL ---
-  var uploadedDancerUrls = [];
-  var dancersModal     = null;
-  var dancersModalGrid = null;
-  var dancersConfirmEl = null;
-  var openSnapshot     = [];
-  var sessionUploads   = [];
+  var uploadedDancerUrls    = [];
+  var dancersModal          = null;
+  var dancersModalGrid      = null;
+  var dancersExtraGrid        = null;
+  var dancersConfirmEl        = null;
+  var dancersCustomAddTrigger = null;
+  var dancersExtraAddTrigger  = null;
+  var dancersExtraToggleBtn   = null;
+  var dancersSaveBtn          = null;
+  var openSnapshot            = [];
+  var openPresetStates        = {};
+  var sessionUploads          = [];
+  var openExtraSnapshot       = [];
+  var openExtraEnabledSnapshot = true;
+  var sessionExtraUploads     = [];
+
+  function snapshotPresets() {
+    var snap = {};
+    PRESET_ORDER.forEach(function (name) {
+      var p = PRESETS[name];
+      snap[name] = { gifs: p.gifs.slice(), enabled: p.enabled };
+    });
+    return snap;
+  }
 
   function hasUnsavedChanges() {
-    if (CLUB_GIFS.length !== openSnapshot.length) return true;
-    for (var i = 0; i < CLUB_GIFS.length; i++) {
-      if (CLUB_GIFS[i] !== openSnapshot[i]) return true;
+    if (extraEnabled !== openExtraEnabledSnapshot) return true;
+    if (EXTRA_GIFS.length !== openExtraSnapshot.length) return true;
+    for (var ti = 0; ti < EXTRA_GIFS.length; ti++) {
+      if (EXTRA_GIFS[ti] !== openExtraSnapshot[ti]) return true;
+    }
+    for (var pi = 0; pi < PRESET_ORDER.length; pi++) {
+      var pname = PRESET_ORDER[pi];
+      var pp = PRESETS[pname];
+      var snap = openPresetStates[pname];
+      if (!snap) return true;
+      if (pp.enabled !== snap.enabled) return true;
+      if (pp.gifs.length !== snap.gifs.length) return true;
+      for (var gi = 0; gi < pp.gifs.length; gi++) {
+        if (pp.gifs[gi] !== snap.gifs[gi]) return true;
+      }
+    }
+    if (uploadedDancerUrls.length !== openSnapshot.length) return true;
+    for (var ci = 0; ci < uploadedDancerUrls.length; ci++) {
+      if (uploadedDancerUrls[ci] !== openSnapshot[ci]) return true;
     }
     return false;
   }
 
+  function updateDancersSaveButtonVisibility() {
+    if (!dancersSaveBtn) return;
+    dancersSaveBtn.hidden = !hasUnsavedChanges();
+  }
+
+  function makeThumb(url, onRemove) {
+    var thumb = document.createElement('div');
+    thumb.className = 'dancer-thumb';
+    var img = document.createElement('img');
+    img.className = 'dancer-thumb__img';
+    img.src = url;
+    img.alt = '';
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'dancer-thumb__remove';
+    removeBtn.type = 'button';
+    removeBtn.textContent = '\u00d7';
+    removeBtn.addEventListener('click', onRemove);
+    thumb.appendChild(img);
+    thumb.appendChild(removeBtn);
+    return thumb;
+  }
+
+  function syncExtraSectionUI() {
+    if (!dancersExtraToggleBtn || !dancersExtraGrid) return;
+    dancersExtraToggleBtn.textContent = extraEnabled ? 'ON' : 'OFF';
+    dancersExtraToggleBtn.className = 'dancers-modal__preset-toggle' +
+      (extraEnabled ? ' dancers-modal__preset-toggle--on' : ' dancers-modal__preset-toggle--off');
+    dancersExtraGrid.className = 'dancers-modal__extra-grid' +
+      (extraEnabled ? '' : ' dancers-modal__preset-grid--off');
+  }
+
+  function renderExtraGrid() {
+    if (!dancersExtraGrid) return;
+    dancersExtraGrid.innerHTML = '';
+    EXTRA_GIFS.forEach(function (url) {
+      dancersExtraGrid.appendChild(makeThumb(url, function () {
+        var idx = EXTRA_GIFS.indexOf(url);
+        if (idx !== -1) EXTRA_GIFS.splice(idx, 1);
+        renderExtraGrid();
+      }));
+    });
+    if (dancersExtraAddTrigger) dancersExtraGrid.appendChild(dancersExtraAddTrigger);
+    syncExtraSectionUI();
+    updateDancersSaveButtonVisibility();
+  }
+
   function renderDancersGrid() {
+    renderExtraGrid();
     if (!dancersModalGrid) return;
     dancersModalGrid.innerHTML = '';
-    CLUB_GIFS.forEach(function (url) {
-      var thumb = document.createElement('div');
-      thumb.className = 'dancer-thumb';
-      var img = document.createElement('img');
-      img.className = 'dancer-thumb__img';
-      img.src = url;
-      img.alt = '';
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'dancer-thumb__remove';
-      removeBtn.type = 'button';
-      removeBtn.textContent = '\u00d7';
-      removeBtn.setAttribute('aria-label', 'Remove dancer');
-      removeBtn.addEventListener('click', function () {
-        var idx = CLUB_GIFS.indexOf(url);
-        if (idx !== -1) CLUB_GIFS.splice(idx, 1);
-        renderDancersGrid();
-      });
-      thumb.appendChild(img);
-      thumb.appendChild(removeBtn);
-      dancersModalGrid.appendChild(thumb);
+
+    // CUSTOM section – always first
+    var customSection = document.createElement('div');
+    customSection.className = 'dancers-modal__preset-section dancers-modal__preset-section--custom';
+
+    var customHeader = document.createElement('div');
+    customHeader.className = 'dancers-modal__preset-header';
+    var customName = document.createElement('span');
+    customName.className = 'dancers-modal__preset-name';
+    customName.textContent = 'CUSTOM';
+    customHeader.appendChild(customName);
+
+    var customGrid = document.createElement('div');
+    customGrid.className = 'dancers-modal__preset-grid';
+
+    uploadedDancerUrls.forEach(function (url) {
+      customGrid.appendChild(makeThumb(url, (function (gifUrl) {
+        return function () {
+          var ci = CLUB_GIFS.indexOf(gifUrl);
+          if (ci !== -1) CLUB_GIFS.splice(ci, 1);
+          var ui = uploadedDancerUrls.indexOf(gifUrl);
+          if (ui !== -1) { uploadedDancerUrls.splice(ui, 1); URL.revokeObjectURL(gifUrl); }
+          var si = sessionUploads.indexOf(gifUrl);
+          if (si !== -1) sessionUploads.splice(si, 1);
+          renderDancersGrid();
+        };
+      }(url))));
     });
+
+    if (dancersCustomAddTrigger) customGrid.appendChild(dancersCustomAddTrigger);
+
+    customSection.appendChild(customHeader);
+    customSection.appendChild(customGrid);
+    dancersModalGrid.appendChild(customSection);
+
+    PRESET_ORDER.forEach(function (name) {
+      var p = PRESETS[name];
+
+      var section = document.createElement('div');
+      section.className = 'dancers-modal__preset-section';
+
+      var sectionHeader = document.createElement('div');
+      sectionHeader.className = 'dancers-modal__preset-header';
+
+      var sectionName = document.createElement('span');
+      sectionName.className = 'dancers-modal__preset-name';
+      sectionName.textContent = name;
+
+      var toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'dancers-modal__preset-toggle' +
+        (p.enabled ? ' dancers-modal__preset-toggle--on' : ' dancers-modal__preset-toggle--off');
+      toggleBtn.textContent = p.enabled ? 'ON' : 'OFF';
+      (function (preset, btn) {
+        btn.addEventListener('click', function () {
+          preset.enabled = !preset.enabled;
+          rebuildClubGifs();
+          renderDancersGrid();
+        });
+      }(p, toggleBtn));
+
+      sectionHeader.appendChild(sectionName);
+      sectionHeader.appendChild(toggleBtn);
+
+      var sectionGrid = document.createElement('div');
+      sectionGrid.className = 'dancers-modal__preset-grid' +
+        (p.enabled ? '' : ' dancers-modal__preset-grid--off');
+
+      p.gifs.forEach(function (url) {
+        sectionGrid.appendChild(makeThumb(url, (function (gifUrl) {
+          return function () {
+            var idx = p.gifs.indexOf(gifUrl);
+            if (idx !== -1) p.gifs.splice(idx, 1);
+            rebuildClubGifs();
+            renderDancersGrid();
+          };
+        }(url))));
+      });
+
+      section.appendChild(sectionHeader);
+      section.appendChild(sectionGrid);
+      dancersModalGrid.appendChild(section);
+    });
+    updateDancersSaveButtonVisibility();
   }
 
   function closeDancersModalDirect() {
@@ -1010,8 +1223,15 @@
         if (i !== -1) uploadedDancerUrls.splice(i, 1);
       }
     });
-    openSnapshot   = CLUB_GIFS.slice();
-    sessionUploads = [];
+    sessionExtraUploads.forEach(function (url) {
+      if (EXTRA_GIFS.indexOf(url) === -1) URL.revokeObjectURL(url);
+    });
+    openSnapshot        = uploadedDancerUrls.slice();
+    openExtraSnapshot        = EXTRA_GIFS.slice();
+    openExtraEnabledSnapshot = extraEnabled;
+    openPresetStates         = snapshotPresets();
+    sessionUploads           = [];
+    sessionExtraUploads      = [];
     closeDancersModalDirect();
   }
 
@@ -1023,24 +1243,48 @@
         if (i !== -1) uploadedDancerUrls.splice(i, 1);
       }
     });
-    CLUB_GIFS.length = 0;
-    openSnapshot.forEach(function (u) { CLUB_GIFS.push(u); });
-    sessionUploads = [];
+    sessionExtraUploads.forEach(function (url) {
+      if (openExtraSnapshot.indexOf(url) === -1) URL.revokeObjectURL(url);
+    });
+    PRESET_ORDER.forEach(function (name) {
+      var snap = openPresetStates[name];
+      if (snap) {
+        PRESETS[name].gifs    = snap.gifs.slice();
+        PRESETS[name].enabled = snap.enabled;
+      }
+    });
+    rebuildClubGifs();
+    extraEnabled = openExtraEnabledSnapshot;
+    if (!extraEnabled && extraEl) extraEl.classList.remove('club-extra--visible');
+    EXTRA_GIFS.length = 0;
+    openExtraSnapshot.forEach(function (u) { EXTRA_GIFS.push(u); });
+    sessionUploads      = [];
+    sessionExtraUploads = [];
+    renderExtraGrid();
     closeDancersModalDirect();
   }
 
   function resetDancers() {
-    // Revoke any session uploads that won't survive the reset
     sessionUploads.forEach(function (url) {
-      if (DEFAULT_DANCER_GIFS.indexOf(url) === -1) {
-        URL.revokeObjectURL(url);
-        var i = uploadedDancerUrls.indexOf(url);
-        if (i !== -1) uploadedDancerUrls.splice(i, 1);
-      }
+      URL.revokeObjectURL(url);
+      var i = uploadedDancerUrls.indexOf(url);
+      if (i !== -1) uploadedDancerUrls.splice(i, 1);
     });
-    sessionUploads = [];
-    CLUB_GIFS.length = 0;
-    DEFAULT_DANCER_GIFS.forEach(function (u) { CLUB_GIFS.push(u); });
+    sessionExtraUploads.forEach(function (url) {
+      if (DEFAULT_EXTRA_GIFS.indexOf(url) === -1) URL.revokeObjectURL(url);
+    });
+    sessionUploads      = [];
+    sessionExtraUploads = [];
+    uploadedDancerUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+    uploadedDancerUrls.length = 0;
+    PRESET_ORDER.forEach(function (name) {
+      PRESETS[name].gifs    = PRESETS[name].loadedGifs.slice();
+      PRESETS[name].enabled = (name === 'FUN');
+    });
+    rebuildClubGifs();
+    extraEnabled = true;
+    EXTRA_GIFS.length = 0;
+    DEFAULT_EXTRA_GIFS.forEach(function (u) { EXTRA_GIFS.push(u); });
     renderDancersGrid();
     if (dancersConfirmEl) dancersConfirmEl.hidden = true;
   }
@@ -1084,29 +1328,28 @@
     header.appendChild(titleEl);
     header.appendChild(closeBtn);
 
-    // Grid
+    // Content (preset sections)
     var grid = document.createElement('div');
-    grid.className = 'dancers-modal__grid';
+    grid.className = 'dancers-modal__content';
     dancersModalGrid = grid;
 
-    // Footer
-    var footer = document.createElement('div');
-    footer.className = 'dancers-modal__footer';
+    // CUSTOM section add-trigger (created once, re-used across renders)
+    var customFileInput = document.createElement('input');
+    customFileInput.type = 'file';
+    customFileInput.accept = 'image/gif';
+    customFileInput.multiple = true;
+    customFileInput.hidden = true;
 
-    var uploadTrigger = document.createElement('div');
-    uploadTrigger.className = 'player__bg-upload dancers-modal__upload';
-    uploadTrigger.setAttribute('role', 'button');
-    uploadTrigger.setAttribute('tabindex', '0');
-    var uploadText = document.createElement('span');
-    uploadText.className = 'player__bg-upload-text';
-    uploadText.textContent = 'Upload Dancers';
-    var fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/gif';
-    fileInput.multiple = true;
-    fileInput.hidden = true;
-    uploadTrigger.appendChild(uploadText);
-    uploadTrigger.appendChild(fileInput);
+    var customAddTrigger = document.createElement('div');
+    customAddTrigger.className = 'dancer-thumb dancer-thumb--add';
+    customAddTrigger.title = 'Upload GIF';
+    var customAddLabel = document.createElement('span');
+    customAddLabel.className = 'dancer-thumb__add-label';
+    customAddLabel.textContent = '+';
+    customAddTrigger.appendChild(customAddLabel);
+    customAddTrigger.appendChild(customFileInput);
+    dancersCustomAddTrigger = customAddTrigger;
+
     var wasExpandedOnUpload = false;
 
     function restoreFullscreen() {
@@ -1116,38 +1359,111 @@
       }
     }
 
-    uploadTrigger.addEventListener('click', function () {
+    customAddTrigger.addEventListener('click', function () {
       wasExpandedOnUpload = inExpandedView();
-      fileInput.click();
+      customFileInput.click();
     });
-    uploadTrigger.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        wasExpandedOnUpload = inExpandedView();
-        fileInput.click();
-      }
-    });
-    fileInput.addEventListener('change', function () {
-      Array.prototype.forEach.call(fileInput.files, function (file) {
+    customFileInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(customFileInput.files, function (file) {
         var url = URL.createObjectURL(file);
         uploadedDancerUrls.push(url);
         sessionUploads.push(url);
-        CLUB_GIFS.push(url);
+        rebuildClubGifs();
       });
-      fileInput.value = '';
+      customFileInput.value = '';
       renderDancersGrid();
       restoreFullscreen();
     });
-    fileInput.addEventListener('cancel', function () {
+    customFileInput.addEventListener('cancel', function () {
       restoreFullscreen();
     });
+
+    // Footer
+    var footer = document.createElement('div');
+    footer.className = 'dancers-modal__footer';
 
     var resetBtn = makeFsBtn('Reset');
     resetBtn.addEventListener('click', resetDancers);
 
     var saveBtn = makeFsBtn('Save');
+    saveBtn.hidden = true;
+    dancersSaveBtn = saveBtn;
     saveBtn.addEventListener('click', saveDancers);
 
-    footer.appendChild(uploadTrigger);
+    // Extra section
+    var extraSection = document.createElement('div');
+    extraSection.className = 'dancers-modal__extra-section';
+
+    var extraHeader = document.createElement('div');
+    extraHeader.className = 'dancers-modal__preset-header';
+
+    var extraName = document.createElement('span');
+    extraName.className = 'dancers-modal__preset-name';
+    extraName.textContent = 'EXTRA';
+
+    var extraToggleBtn = document.createElement('button');
+    extraToggleBtn.type = 'button';
+    extraToggleBtn.className = 'dancers-modal__preset-toggle';
+    extraToggleBtn.addEventListener('click', function () {
+      extraEnabled = !extraEnabled;
+      if (!extraEnabled && extraEl) extraEl.classList.remove('club-extra--visible');
+      syncExtraSectionUI();
+      updateDancersSaveButtonVisibility();
+    });
+    dancersExtraToggleBtn = extraToggleBtn;
+
+    extraHeader.appendChild(extraName);
+    extraHeader.appendChild(extraToggleBtn);
+
+    var extraGrid = document.createElement('div');
+    extraGrid.className = 'dancers-modal__extra-grid';
+    dancersExtraGrid = extraGrid;
+
+    var extraAddTrigger = document.createElement('div');
+    extraAddTrigger.className = 'dancer-thumb dancer-thumb--add';
+    extraAddTrigger.title = 'Add extra GIF';
+    var extraAddLabel = document.createElement('span');
+    extraAddLabel.textContent = '+';
+    extraAddLabel.className = 'dancer-thumb__add-label';
+
+    var extraFileInput = document.createElement('input');
+    extraFileInput.type = 'file';
+    extraFileInput.accept = 'image/gif';
+    extraFileInput.multiple = true;
+    extraFileInput.hidden = true;
+
+    var wasExtraExpandedOnUpload = false;
+    extraAddTrigger.addEventListener('click', function () {
+      wasExtraExpandedOnUpload = inExpandedView();
+      extraFileInput.click();
+    });
+    extraFileInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(extraFileInput.files, function (file) {
+        var url = URL.createObjectURL(file);
+        sessionExtraUploads.push(url);
+        EXTRA_GIFS.push(url);
+      });
+      extraFileInput.value = '';
+      renderExtraGrid();
+      if (wasExtraExpandedOnUpload && !inExpandedView()) {
+        wasExtraExpandedOnUpload = false;
+        enterExpandedView();
+      }
+    });
+    extraFileInput.addEventListener('cancel', function () {
+      if (wasExtraExpandedOnUpload && !inExpandedView()) {
+        wasExtraExpandedOnUpload = false;
+        enterExpandedView();
+      }
+    });
+
+    extraAddTrigger.appendChild(extraAddLabel);
+    extraAddTrigger.appendChild(extraFileInput);
+    dancersExtraAddTrigger = extraAddTrigger;
+
+    extraSection.appendChild(extraHeader);
+    extraSection.appendChild(extraGrid);
+
     footer.appendChild(resetBtn);
     footer.appendChild(saveBtn);
 
@@ -1175,6 +1491,7 @@
 
     box.appendChild(header);
     box.appendChild(grid);
+    box.appendChild(extraSection);
     box.appendChild(footer);
     box.appendChild(confirm);
     modal.appendChild(box);
@@ -1185,8 +1502,12 @@
   function openDancersModal() {
     if (!dancersModal) createDancersModal();
     if (audioEl && !audioEl.paused) audioEl.pause();
-    openSnapshot   = CLUB_GIFS.slice();
-    sessionUploads = [];
+    openSnapshot             = uploadedDancerUrls.slice();
+    openExtraSnapshot        = EXTRA_GIFS.slice();
+    openExtraEnabledSnapshot = extraEnabled;
+    openPresetStates         = snapshotPresets();
+    sessionUploads           = [];
+    sessionExtraUploads      = [];
     renderDancersGrid();
     if (dancersConfirmEl) dancersConfirmEl.hidden = true;
     // In fullscreen the modal must live inside spectrumShell to be visible
