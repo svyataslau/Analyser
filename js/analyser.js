@@ -9,6 +9,7 @@
   var MUSIC_LIBRARY = [];
 
   var CLUB_GIFS = [];
+  var DEFAULT_DANCER_GIFS = [];
   var CLUB_MAX_DANCERS        = 5;
   var CLUB_MIN_DANCERS        = 3;
   var CLUB_MIN_MS             = 3000;
@@ -629,7 +630,7 @@
       CLUB_GIFS.push('assets/dance-girl/dance-girl-' + n + '.gif');
       loadDanceGifs(n + 1);
     };
-    img.onerror = function () {};
+    img.onerror = function () { DEFAULT_DANCER_GIFS = CLUB_GIFS.slice(); };
     img.src = 'assets/dance-girl/dance-girl-' + n + '.gif';
   }(1));
 
@@ -638,6 +639,7 @@
   var spectrumShell = document.getElementById('spectrum-fullscreen-root');
   var fullscreenEnter = document.getElementById('fullscreen-enter');
   var fullscreenExit = document.getElementById('fullscreen-exit');
+  var customizeDancersFsBtn = document.getElementById('customize-dancers-fs-btn');
   var fsPlayBtn = document.getElementById('fs-play-btn');
   var fsControls = document.getElementById('fs-controls');
   var normalClubBtn = document.getElementById('normal-club-btn');
@@ -655,9 +657,10 @@
   function syncFullscreenButtons() {
     var on = inExpandedView();
     var playing = audioEl && !audioEl.paused;
-    if (fullscreenEnter) fullscreenEnter.hidden = on;
-    if (fullscreenExit)  fullscreenExit.hidden  = !on;
-    if (fsControls)      fsControls.classList.toggle('fs-controls--visible', on && !playing);
+    if (fullscreenEnter)       fullscreenEnter.hidden       = on;
+    if (fullscreenExit)        fullscreenExit.hidden        = !on;
+    if (customizeDancersFsBtn) customizeDancersFsBtn.hidden = !on;
+    if (fsControls)            fsControls.classList.toggle('fs-controls--visible', on && !playing);
   }
 
   function usePseudoFullscreen() {
@@ -952,39 +955,249 @@
     });
   }
 
-  // --- UPLOAD DANCERS ---
+  // --- CUSTOMIZE DANCERS MODAL ---
   var uploadedDancerUrls = [];
-  var dancersUploadTrigger = document.getElementById('dancers-upload-trigger');
-  var dancersUploadInput   = document.getElementById('dancers-upload-input');
-  var dancersUploadClear   = document.getElementById('dancers-upload-clear');
+  var dancersModal     = null;
+  var dancersModalGrid = null;
+  var dancersConfirmEl = null;
+  var openSnapshot     = [];
+  var sessionUploads   = [];
 
-  if (dancersUploadTrigger && dancersUploadInput) {
-    dancersUploadTrigger.addEventListener('click', function () { dancersUploadInput.click(); });
-    dancersUploadTrigger.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') dancersUploadInput.click();
-    });
-    dancersUploadInput.addEventListener('change', function () {
-      Array.prototype.forEach.call(dancersUploadInput.files, function (file) {
-        var url = URL.createObjectURL(file);
-        uploadedDancerUrls.push(url);
-        CLUB_GIFS.push(url);
-      });
-      if (dancersUploadClear) dancersUploadClear.hidden = uploadedDancerUrls.length === 0;
-      dancersUploadInput.value = '';
-    });
+  function hasUnsavedChanges() {
+    if (CLUB_GIFS.length !== openSnapshot.length) return true;
+    for (var i = 0; i < CLUB_GIFS.length; i++) {
+      if (CLUB_GIFS[i] !== openSnapshot[i]) return true;
+    }
+    return false;
   }
 
-  if (dancersUploadClear) {
-    dancersUploadClear.addEventListener('click', function () {
-      uploadedDancerUrls.forEach(function (url) {
+  function renderDancersGrid() {
+    if (!dancersModalGrid) return;
+    dancersModalGrid.innerHTML = '';
+    CLUB_GIFS.forEach(function (url) {
+      var thumb = document.createElement('div');
+      thumb.className = 'dancer-thumb';
+      var img = document.createElement('img');
+      img.className = 'dancer-thumb__img';
+      img.src = url;
+      img.alt = '';
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'dancer-thumb__remove';
+      removeBtn.type = 'button';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.setAttribute('aria-label', 'Remove dancer');
+      removeBtn.addEventListener('click', function () {
         var idx = CLUB_GIFS.indexOf(url);
         if (idx !== -1) CLUB_GIFS.splice(idx, 1);
-        URL.revokeObjectURL(url);
+        renderDancersGrid();
       });
-      uploadedDancerUrls = [];
-      dancersUploadClear.hidden = true;
+      thumb.appendChild(img);
+      thumb.appendChild(removeBtn);
+      dancersModalGrid.appendChild(thumb);
     });
   }
+
+  function closeDancersModalDirect() {
+    if (dancersModal)     dancersModal.hidden = true;
+    if (dancersConfirmEl) dancersConfirmEl.hidden = true;
+  }
+
+  function saveDancers() {
+    sessionUploads.forEach(function (url) {
+      if (CLUB_GIFS.indexOf(url) === -1) {
+        URL.revokeObjectURL(url);
+        var i = uploadedDancerUrls.indexOf(url);
+        if (i !== -1) uploadedDancerUrls.splice(i, 1);
+      }
+    });
+    openSnapshot   = CLUB_GIFS.slice();
+    sessionUploads = [];
+    closeDancersModalDirect();
+  }
+
+  function discardDancers() {
+    sessionUploads.forEach(function (url) {
+      if (openSnapshot.indexOf(url) === -1) {
+        URL.revokeObjectURL(url);
+        var i = uploadedDancerUrls.indexOf(url);
+        if (i !== -1) uploadedDancerUrls.splice(i, 1);
+      }
+    });
+    CLUB_GIFS.length = 0;
+    openSnapshot.forEach(function (u) { CLUB_GIFS.push(u); });
+    sessionUploads = [];
+    closeDancersModalDirect();
+  }
+
+  function resetDancers() {
+    // Revoke any session uploads that won't survive the reset
+    sessionUploads.forEach(function (url) {
+      if (DEFAULT_DANCER_GIFS.indexOf(url) === -1) {
+        URL.revokeObjectURL(url);
+        var i = uploadedDancerUrls.indexOf(url);
+        if (i !== -1) uploadedDancerUrls.splice(i, 1);
+      }
+    });
+    sessionUploads = [];
+    CLUB_GIFS.length = 0;
+    DEFAULT_DANCER_GIFS.forEach(function (u) { CLUB_GIFS.push(u); });
+    renderDancersGrid();
+    if (dancersConfirmEl) dancersConfirmEl.hidden = true;
+  }
+
+  function tryCloseDancersModal() {
+    if (hasUnsavedChanges()) {
+      if (dancersConfirmEl) dancersConfirmEl.hidden = false;
+    } else {
+      closeDancersModalDirect();
+    }
+  }
+
+  function makeFsBtn(text) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'player__fullscreen-btn';
+    b.textContent = text;
+    return b;
+  }
+
+  function createDancersModal() {
+    var modal = document.createElement('div');
+    modal.className = 'dancers-modal';
+    modal.hidden = true;
+    modal.addEventListener('click', function (e) { if (e.target === modal) tryCloseDancersModal(); });
+
+    var box = document.createElement('div');
+    box.className = 'dancers-modal__box';
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'dancers-modal__header';
+    var titleEl = document.createElement('span');
+    titleEl.className = 'dancers-modal__title';
+    titleEl.textContent = 'Customize Dancers';
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'dancers-modal__close';
+    closeBtn.textContent = '\u00d7';
+    closeBtn.addEventListener('click', tryCloseDancersModal);
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+
+    // Grid
+    var grid = document.createElement('div');
+    grid.className = 'dancers-modal__grid';
+    dancersModalGrid = grid;
+
+    // Footer
+    var footer = document.createElement('div');
+    footer.className = 'dancers-modal__footer';
+
+    var uploadTrigger = document.createElement('div');
+    uploadTrigger.className = 'player__bg-upload dancers-modal__upload';
+    uploadTrigger.setAttribute('role', 'button');
+    uploadTrigger.setAttribute('tabindex', '0');
+    var uploadText = document.createElement('span');
+    uploadText.className = 'player__bg-upload-text';
+    uploadText.textContent = 'Upload Dancers';
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/gif';
+    fileInput.multiple = true;
+    fileInput.hidden = true;
+    uploadTrigger.appendChild(uploadText);
+    uploadTrigger.appendChild(fileInput);
+    var wasExpandedOnUpload = false;
+
+    function restoreFullscreen() {
+      if (wasExpandedOnUpload && !inExpandedView()) {
+        wasExpandedOnUpload = false;
+        enterExpandedView();
+      }
+    }
+
+    uploadTrigger.addEventListener('click', function () {
+      wasExpandedOnUpload = inExpandedView();
+      fileInput.click();
+    });
+    uploadTrigger.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        wasExpandedOnUpload = inExpandedView();
+        fileInput.click();
+      }
+    });
+    fileInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(fileInput.files, function (file) {
+        var url = URL.createObjectURL(file);
+        uploadedDancerUrls.push(url);
+        sessionUploads.push(url);
+        CLUB_GIFS.push(url);
+      });
+      fileInput.value = '';
+      renderDancersGrid();
+      restoreFullscreen();
+    });
+    fileInput.addEventListener('cancel', function () {
+      restoreFullscreen();
+    });
+
+    var resetBtn = makeFsBtn('Reset');
+    resetBtn.addEventListener('click', resetDancers);
+
+    var saveBtn = makeFsBtn('Save');
+    saveBtn.addEventListener('click', saveDancers);
+
+    footer.appendChild(uploadTrigger);
+    footer.appendChild(resetBtn);
+    footer.appendChild(saveBtn);
+
+    // Confirm overlay (inside box so it covers only the modal)
+    var confirm = document.createElement('div');
+    confirm.className = 'dancers-confirm';
+    confirm.hidden = true;
+    var confirmBox = document.createElement('div');
+    confirmBox.className = 'dancers-confirm__box';
+    var confirmText = document.createElement('p');
+    confirmText.className = 'dancers-confirm__text';
+    confirmText.textContent = 'Save changes?';
+    var confirmBtns = document.createElement('div');
+    confirmBtns.className = 'dancers-confirm__btns';
+    var yesBtn = makeFsBtn('Yes');
+    yesBtn.addEventListener('click', saveDancers);
+    var noBtn = makeFsBtn('No');
+    noBtn.addEventListener('click', discardDancers);
+    confirmBtns.appendChild(yesBtn);
+    confirmBtns.appendChild(noBtn);
+    confirmBox.appendChild(confirmText);
+    confirmBox.appendChild(confirmBtns);
+    confirm.appendChild(confirmBox);
+    dancersConfirmEl = confirm;
+
+    box.appendChild(header);
+    box.appendChild(grid);
+    box.appendChild(footer);
+    box.appendChild(confirm);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+    dancersModal = modal;
+  }
+
+  function openDancersModal() {
+    if (!dancersModal) createDancersModal();
+    if (audioEl && !audioEl.paused) audioEl.pause();
+    openSnapshot   = CLUB_GIFS.slice();
+    sessionUploads = [];
+    renderDancersGrid();
+    if (dancersConfirmEl) dancersConfirmEl.hidden = true;
+    // In fullscreen the modal must live inside spectrumShell to be visible
+    var target = inExpandedView() ? (spectrumShell || document.body) : document.body;
+    if (dancersModal.parentNode !== target) target.appendChild(dancersModal);
+    dancersModal.hidden = false;
+  }
+
+  var customizeDancersBtn = document.getElementById('customize-dancers-btn');
+  if (customizeDancersBtn)   customizeDancersBtn.addEventListener('click', openDancersModal);
+  if (customizeDancersFsBtn) customizeDancersFsBtn.addEventListener('click', openDancersModal);
 
   syncFullscreenButtons();
 })();
