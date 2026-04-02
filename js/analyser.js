@@ -43,6 +43,12 @@
   var bgUploadTrigger = document.getElementById('bg-upload-trigger');
   var bgFileInput = document.getElementById('bg-file-input');
   var bgRemoveBtn = document.getElementById('bg-remove-btn');
+  var queueNowInner = document.getElementById('queue-now-inner');
+  var queueNextList = document.getElementById('queue-next-list');
+  var queueFileInput = document.getElementById('queue-file-input');
+  var queueAddSelect = document.getElementById('queue-add-select');
+  var queueAddBtn = document.getElementById('queue-add-btn');
+  var queueRepeatBtn = document.getElementById('queue-repeat-btn');
 
   if (albumImg) {
     albumImg.addEventListener('error', function () {
@@ -173,37 +179,390 @@
   var UPLOAD_DEFAULT_BG = 'albums/Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).jpg';
   var DEFAULT_LIBRARY_TRACK_FILE = 'Gorillaz - New Gold (feat. Tame Impala and Bootie Brown).mp3';
 
+  var playbackQueue = [];
+  var queueIdSeq = 0;
+  var queueAdvanceTimer = null;
+  var queueDragFrom = null;
+  /** 0 = off (consume queue), 1 = repeat one, 2 = repeat all (rotate to end) */
+  var queueRepeatMode = 0;
+
+  function clearQueueAdvanceTimer() {
+    if (queueAdvanceTimer) {
+      clearTimeout(queueAdvanceTimer);
+      queueAdvanceTimer = null;
+    }
+  }
+
+  function updateQueueRepeatButtonLabel() {
+    if (!queueRepeatBtn) return;
+    var labels = ['Repeat \u00b7 Off', 'Repeat \u00b7 One', 'Repeat \u00b7 All'];
+    queueRepeatBtn.textContent = labels[queueRepeatMode];
+    queueRepeatBtn.classList.toggle('player-queue__repeat-btn--active', queueRepeatMode !== 0);
+  }
+
+  function nextQueueId() {
+    queueIdSeq += 1;
+    return 'q' + queueIdSeq;
+  }
+
+  function getLibraryEntryByFile(file) {
+    var k;
+    for (k = 0; k < MUSIC_LIBRARY.length; k++) {
+      if (MUSIC_LIBRARY[k].file === file) return MUSIC_LIBRARY[k];
+    }
+    return null;
+  }
+
+  function splitArtistTitle(label) {
+    var dash = label.indexOf(' - ');
+    if (dash === -1) return { artist: '\u2014', title: label };
+    return { artist: label.slice(0, dash).trim(), title: label.slice(dash + 3).trim() };
+  }
+
+  function makeLibraryQueueItem(file) {
+    var ent = getLibraryEntryByFile(file);
+    return {
+      id: nextQueueId(),
+      kind: 'library',
+      file: file,
+      label: ent ? ent.label : file,
+    };
+  }
+
+  function makeUploadQueueItem(url, displayName) {
+    return { id: nextQueueId(), kind: 'upload', url: url, label: displayName };
+  }
+
+  function buildDefaultPlaybackQueue() {
+    var files = MUSIC_LIBRARY.map(function (e) { return e.file; });
+    var di = files.indexOf(DEFAULT_LIBRARY_TRACK_FILE);
+    if (di > 0) {
+      files.splice(di, 1);
+      files.unshift(DEFAULT_LIBRARY_TRACK_FILE);
+    }
+    return files.map(function (f) { return makeLibraryQueueItem(f); });
+  }
+
+  function revokeUploadUrlIfOrphaned(url) {
+    var c = 0;
+    var i;
+    for (i = 0; i < playbackQueue.length; i++) {
+      if (playbackQueue[i].kind === 'upload' && playbackQueue[i].url === url) c += 1;
+    }
+    if (c === 0) URL.revokeObjectURL(url);
+  }
+
+  function syncTrackSelectToQueueHead() {
+    if (!trackSelect || !playbackQueue.length) return;
+    var h = playbackQueue[0];
+    if (h.kind === 'library') {
+      var customOpt = trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
+      if (customOpt) customOpt.remove();
+      if (fileInput) fileInput.value = '';
+      trackSelect.value = h.file;
+    } else {
+      var opt = ensureCustomUploadOption();
+      opt.textContent = h.label;
+      opt.title = h.label;
+      trackSelect.value = CUSTOM_VALUE;
+    }
+  }
+
+  function loadAudioFromQueueHead(autoplay) {
+    if (!audioEl || !playbackQueue.length) return;
+    var h = playbackQueue[0];
+    if (h.kind === 'library') {
+      audioEl.src = MUSIC_BASE + encodeURIComponent(h.file);
+    } else {
+      audioEl.src = h.url;
+    }
+    syncTrackSelectToQueueHead();
+    if (autoplay) audioEl.play().catch(function () {});
+  }
+
+  function moveLibraryFileToQueueFront(fileName) {
+    var idx = -1;
+    var i;
+    for (i = 0; i < playbackQueue.length; i++) {
+      if (playbackQueue[i].kind === 'library' && playbackQueue[i].file === fileName) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) {
+      playbackQueue.unshift(makeLibraryQueueItem(fileName));
+    } else if (idx > 0) {
+      var it = playbackQueue.splice(idx, 1)[0];
+      playbackQueue.unshift(it);
+    }
+  }
+
+  function rotateQueueHeadToEndAndContinue() {
+    if (!playbackQueue.length || !audioEl) return;
+    var first = playbackQueue.shift();
+    playbackQueue.push(first);
+    syncTrackSelectToQueueHead();
+    loadAudioFromQueueHead(false);
+    audioEl.play().catch(function () {});
+    updateAlbumArt();
+    applyDefaultBackground();
+    renderPlaybackQueueUI();
+  }
+
+  function onQueueAudioEnded() {
+    if (queueRepeatMode === 1) {
+      clearQueueAdvanceTimer();
+      if (audioEl && playbackQueue.length) {
+        audioEl.currentTime = 0;
+        audioEl.play().catch(function () {});
+      }
+      return;
+    }
+    if (queueRepeatMode === 2) {
+      clearQueueAdvanceTimer();
+      rotateQueueHeadToEndAndContinue();
+      return;
+    }
+    scheduleQueueEndAnimation();
+  }
+
+  function advancePlaybackQueueAfterTrackEnd() {
+    clearQueueAdvanceTimer();
+    var done = playbackQueue[0];
+    if (done && done.kind === 'upload') {
+      var still = false;
+      var j;
+      for (j = 1; j < playbackQueue.length; j++) {
+        if (playbackQueue[j].kind === 'upload' && playbackQueue[j].url === done.url) {
+          still = true;
+          break;
+        }
+      }
+      if (!still) URL.revokeObjectURL(done.url);
+    }
+    playbackQueue.shift();
+    syncTrackSelectToQueueHead();
+    if (playbackQueue.length) {
+      loadAudioFromQueueHead(false);
+      audioEl.play().catch(function () {});
+    } else {
+      audioEl.pause();
+      audioEl.removeAttribute('src');
+      audioEl.load();
+      if (audioPlayBtn) audioPlayBtn.textContent = 'PLAY';
+      var co = trackSelect && trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
+      if (co) co.remove();
+      if (fileInput) fileInput.value = '';
+      if (MUSIC_LIBRARY.length) {
+        playbackQueue = buildDefaultPlaybackQueue();
+        syncTrackSelectToQueueHead();
+        loadAudioFromQueueHead(false);
+      } else if (trackSelect) trackSelect.value = '';
+    }
+    updateAlbumArt();
+    applyDefaultBackground();
+    renderPlaybackQueueUI();
+  }
+
+  function scheduleQueueEndAnimation() {
+    if (queueAdvanceTimer) return;
+    if (queueRepeatMode !== 0) return;
+    var inner = queueNowInner && queueNowInner.querySelector('.player-queue__now-track-inner');
+    if (inner) {
+      inner.classList.add('player-queue__now-track-inner--exit');
+      queueAdvanceTimer = setTimeout(function () {
+        queueAdvanceTimer = null;
+        advancePlaybackQueueAfterTrackEnd();
+      }, 380);
+    } else {
+      advancePlaybackQueueAfterTrackEnd();
+    }
+  }
+
+  function reorderQueueIndices(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 1 || fromIndex >= playbackQueue.length) return;
+    if (toIndex < 1 || toIndex >= playbackQueue.length) return;
+    var moved = playbackQueue.splice(fromIndex, 1)[0];
+    playbackQueue.splice(toIndex, 0, moved);
+    renderPlaybackQueueUI();
+  }
+
+  function removeQueueAtIndex(idx) {
+    if (idx < 0 || idx >= playbackQueue.length) return;
+    clearQueueAdvanceTimer();
+    var item = playbackQueue[idx];
+    var wasPlaying = audioEl && !audioEl.paused;
+    playbackQueue.splice(idx, 1);
+    if (item.kind === 'upload') revokeUploadUrlIfOrphaned(item.url);
+    if (idx === 0) {
+      if (playbackQueue.length) {
+        syncTrackSelectToQueueHead();
+        loadAudioFromQueueHead(wasPlaying);
+      } else {
+        if (audioEl) {
+          audioEl.pause();
+          audioEl.removeAttribute('src');
+          audioEl.load();
+        }
+        if (audioPlayBtn) audioPlayBtn.textContent = 'PLAY';
+        var cx = trackSelect && trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
+        if (cx) cx.remove();
+        if (fileInput) fileInput.value = '';
+        if (MUSIC_LIBRARY.length) {
+          playbackQueue = buildDefaultPlaybackQueue();
+          syncTrackSelectToQueueHead();
+          loadAudioFromQueueHead(wasPlaying);
+        } else if (trackSelect) trackSelect.value = '';
+      }
+    }
+    updateAlbumArt();
+    applyDefaultBackground();
+    renderPlaybackQueueUI();
+  }
+
+  function renderPlaybackQueueUI() {
+    if (!queueNowInner || !queueNextList) return;
+    queueNextList.innerHTML = '';
+    if (!playbackQueue.length) {
+      queueNowInner.innerHTML = '<div class="player-queue__empty">\u2014</div>';
+      return;
+    }
+    var head = playbackQueue[0];
+    queueNowInner.innerHTML = '';
+    var nowWrap = document.createElement('div');
+    nowWrap.className = 'player-queue__now-track-inner';
+    var titleEl = document.createElement('div');
+    titleEl.className = 'player-queue__track-title';
+    var albumEl = document.createElement('div');
+    albumEl.className = 'player-queue__track-album';
+    if (head.kind === 'library') {
+      var parts = splitArtistTitle(head.label);
+      titleEl.textContent = parts.title;
+      albumEl.textContent = parts.artist;
+    } else {
+      titleEl.textContent = head.label.replace(/\.mp3$/i, '');
+      albumEl.textContent = 'Upload';
+    }
+    var rmNow = document.createElement('button');
+    rmNow.type = 'button';
+    rmNow.className = 'player-queue__remove';
+    rmNow.setAttribute('aria-label', 'Skip track');
+    rmNow.textContent = '\u00d7';
+    rmNow.addEventListener('click', function () { removeQueueAtIndex(0); });
+    nowWrap.appendChild(titleEl);
+    nowWrap.appendChild(albumEl);
+    nowWrap.appendChild(rmNow);
+    queueNowInner.appendChild(nowWrap);
+
+    var n;
+    for (n = 1; n < playbackQueue.length; n++) {
+      (function (qi) {
+        var item = playbackQueue[qi];
+        var li = document.createElement('li');
+        li.className = 'player-queue__next-item';
+        li.draggable = true;
+        li.dataset.queueIndex = String(qi);
+        var t = document.createElement('div');
+        t.className = 'player-queue__track-title';
+        var a = document.createElement('div');
+        a.className = 'player-queue__track-album';
+        if (item.kind === 'library') {
+          var p2 = splitArtistTitle(item.label);
+          t.textContent = p2.title;
+          a.textContent = p2.artist;
+        } else {
+          t.textContent = item.label.replace(/\.mp3$/i, '');
+          a.textContent = 'Upload';
+        }
+        var rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'player-queue__remove';
+        rm.setAttribute('aria-label', 'Remove from queue');
+        rm.textContent = '\u00d7';
+        rm.addEventListener('click', function (e) {
+          e.stopPropagation();
+          removeQueueAtIndex(qi);
+        });
+        li.appendChild(t);
+        li.appendChild(a);
+        li.appendChild(rm);
+        li.addEventListener('dragstart', function (e) {
+          queueDragFrom = qi;
+          li.classList.add('player-queue__next-item--drag');
+          e.dataTransfer.effectAllowed = 'move';
+          try {
+            e.dataTransfer.setData('text/plain', String(qi));
+          } catch (err) {}
+        });
+        li.addEventListener('dragend', function () {
+          li.classList.remove('player-queue__next-item--drag');
+          var els = queueNextList.querySelectorAll('.player-queue__next-item--over');
+          for (var ei = 0; ei < els.length; ei++) els[ei].classList.remove('player-queue__next-item--over');
+          queueDragFrom = null;
+        });
+        li.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          li.classList.add('player-queue__next-item--over');
+        });
+        li.addEventListener('dragleave', function () {
+          li.classList.remove('player-queue__next-item--over');
+        });
+        li.addEventListener('drop', function (e) {
+          e.preventDefault();
+          li.classList.remove('player-queue__next-item--over');
+          var from = queueDragFrom;
+          if (from == null) return;
+          var to = parseInt(li.dataset.queueIndex, 10);
+          if (isNaN(to)) return;
+          reorderQueueIndices(from, to);
+        });
+        queueNextList.appendChild(li);
+      })(n);
+    }
+  }
+
+  function populateQueueAddSelect() {
+    if (!queueAddSelect) return;
+    queueAddSelect.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = 'Add track\u2026';
+    queueAddSelect.appendChild(ph);
+    MUSIC_LIBRARY.forEach(function (e) {
+      var o = document.createElement('option');
+      o.value = e.file;
+      o.textContent = e.label;
+      queueAddSelect.appendChild(o);
+    });
+  }
+
   function setAudioFromLibrary(fileName) {
+    moveLibraryFileToQueueFront(fileName);
     var wasPlaying = !audioEl.paused;
-    audioEl.src = MUSIC_BASE + encodeURIComponent(fileName);
-    if (wasPlaying) audioEl.play().catch(function () {});
+    loadAudioFromQueueHead(wasPlaying);
+    renderPlaybackQueueUI();
   }
 
   function updateAlbumArt() {
-    var v = trackSelect.value;
     if (!albumFigure || !albumImg) return;
-    if (!v) {
+    if (!playbackQueue.length) {
       albumFigure.classList.add('player__album--placeholder');
       albumImg.removeAttribute('src');
       albumImg.alt = '';
       applyDefaultBackground();
       return;
     }
-    if (v === CUSTOM_VALUE) {
+    var h = playbackQueue[0];
+    if (h.kind === 'upload') {
       albumFigure.classList.remove('player__album--placeholder');
       albumImg.alt = 'Unknown album';
       albumImg.src = ASSETS_BASE + UNKNOWN_ALBUM_ART;
       applyDefaultBackground();
       return;
     }
-    var entry = null;
-    var k;
-    for (k = 0; k < MUSIC_LIBRARY.length; k++) {
-      if (MUSIC_LIBRARY[k].file === v) {
-        entry = MUSIC_LIBRARY[k];
-        break;
-      }
-    }
+    var entry = getLibraryEntryByFile(h.file);
     if (!entry) {
       albumFigure.classList.add('player__album--placeholder');
       albumImg.removeAttribute('src');
@@ -235,24 +594,22 @@
   }
 
   function populateTrackSelect() {
+    trackSelect.innerHTML = '';
     MUSIC_LIBRARY.forEach(function (entry) {
       var opt = document.createElement('option');
       opt.value = entry.file;
       opt.textContent = entry.label;
       trackSelect.appendChild(opt);
     });
+    populateQueueAddSelect();
     if (MUSIC_LIBRARY.length) {
-      var initialFile = MUSIC_LIBRARY[0].file;
-      var d;
-      for (d = 0; d < MUSIC_LIBRARY.length; d++) {
-        if (MUSIC_LIBRARY[d].file === DEFAULT_LIBRARY_TRACK_FILE) {
-          initialFile = DEFAULT_LIBRARY_TRACK_FILE;
-          break;
-        }
-      }
-      trackSelect.value = initialFile;
-      setAudioFromLibrary(initialFile);
+      playbackQueue = buildDefaultPlaybackQueue();
+      syncTrackSelectToQueueHead();
+      loadAudioFromQueueHead(false);
+    } else {
+      playbackQueue = [];
     }
+    renderPlaybackQueueUI();
     updateAlbumArt();
   }
 
@@ -263,14 +620,18 @@
   fileInput.addEventListener('change', function () {
     if (fileInput.files && fileInput.files[0]) {
       var file = fileInput.files[0];
+      var url = URL.createObjectURL(file);
       var opt = ensureCustomUploadOption();
       opt.textContent = file.name;
       opt.title = file.name;
+      playbackQueue.unshift(makeUploadQueueItem(url, file.name));
       trackSelect.value = CUSTOM_VALUE;
       var wasPlaying = !audioEl.paused;
-      audioEl.src = URL.createObjectURL(file);
+      loadAudioFromQueueHead(wasPlaying);
       if (wasPlaying) audioEl.play().catch(function () {});
+      renderPlaybackQueueUI();
       updateAlbumArt();
+      fileInput.value = '';
     }
   });
 
@@ -283,9 +644,65 @@
     fileInput.value = '';
     var customOpt = trackSelect.querySelector('option[value="' + CUSTOM_VALUE + '"]');
     if (customOpt) customOpt.remove();
-    setAudioFromLibrary(v);
+    var ap = !audioEl.paused;
+    moveLibraryFileToQueueFront(v);
+    loadAudioFromQueueHead(ap);
+    renderPlaybackQueueUI();
     updateAlbumArt();
   });
+
+  if (queueFileInput) {
+    queueFileInput.addEventListener('change', function () {
+      if (queueFileInput.files && queueFileInput.files[0]) {
+        var qf = queueFileInput.files[0];
+        var qurl = URL.createObjectURL(qf);
+        var qopt = ensureCustomUploadOption();
+        qopt.textContent = qf.name;
+        qopt.title = qf.name;
+        playbackQueue.unshift(makeUploadQueueItem(qurl, qf.name));
+        trackSelect.value = CUSTOM_VALUE;
+        loadAudioFromQueueHead(true);
+        audioEl.play().catch(function () {});
+        renderPlaybackQueueUI();
+        updateAlbumArt();
+        queueFileInput.value = '';
+      }
+    });
+  }
+
+  if (queueAddBtn && queueAddSelect) {
+    queueAddBtn.addEventListener('click', function () {
+      var vf = queueAddSelect.value;
+      if (!vf) return;
+      playbackQueue.push(makeLibraryQueueItem(vf));
+      renderPlaybackQueueUI();
+      queueAddSelect.value = '';
+    });
+  }
+
+  var queueUploadLabel = document.querySelector('.player-queue__upload');
+  if (queueUploadLabel && queueFileInput) {
+    queueUploadLabel.addEventListener('keydown', function (evt) {
+      if (evt.key === 'Enter' || evt.key === ' ') {
+        evt.preventDefault();
+        queueFileInput.click();
+      }
+    });
+  }
+
+  if (audioEl) {
+    audioEl.addEventListener('ended', function () {
+      onQueueAudioEnded();
+    });
+  }
+
+  if (queueRepeatBtn) {
+    queueRepeatBtn.addEventListener('click', function () {
+      queueRepeatMode = (queueRepeatMode + 1) % 3;
+      updateQueueRepeatButtonLabel();
+    });
+    updateQueueRepeatButtonLabel();
+  }
 
   var userBgActive = false;
   var currentBgObjectUrl = null;
@@ -307,16 +724,14 @@
   }
 
   function getAutoBgUrl() {
-    var v = trackSelect.value;
-    if (!v) return null;
-    if (v === CUSTOM_VALUE) {
+    if (!playbackQueue.length) return null;
+    var h = playbackQueue[0];
+    if (h.kind === 'upload') {
       return new URL(ASSETS_BASE + UPLOAD_DEFAULT_BG, document.baseURI).href;
     }
-    var k;
-    for (k = 0; k < MUSIC_LIBRARY.length; k++) {
-      if (MUSIC_LIBRARY[k].file === v && MUSIC_LIBRARY[k].coverArt) {
-        return new URL(ASSETS_BASE + MUSIC_LIBRARY[k].coverArt, document.baseURI).href;
-      }
+    var ent = getLibraryEntryByFile(h.file);
+    if (ent && ent.coverArt) {
+      return new URL(ASSETS_BASE + ent.coverArt, document.baseURI).href;
     }
     return null;
   }
@@ -801,14 +1216,9 @@
         if (clubActive) toggleClub();
         audioEl.play().catch(function () {});
       } else {
+        if (clubActive) toggleClub();
         audioEl.pause();
       }
-    });
-  }
-
-  if (normalClubBtn) {
-    normalClubBtn.addEventListener('click', function () {
-      toggleClub();
     });
   }
 
@@ -1007,10 +1417,23 @@
     }
   }
 
+  function onClubButtonClick() {
+    toggleClub();
+    if (audioEl) {
+      if (clubActive) {
+        audioEl.play().catch(function () {});
+      } else {
+        audioEl.pause();
+      }
+    }
+  }
+
   if (clubBtn) {
-    clubBtn.addEventListener('click', function () {
-      toggleClub();
-    });
+    clubBtn.addEventListener('click', onClubButtonClick);
+  }
+
+  if (normalClubBtn) {
+    normalClubBtn.addEventListener('click', onClubButtonClick);
   }
 
   if (audioPlayBtn && audioEl) {
@@ -1019,6 +1442,7 @@
         if (clubActive) toggleClub();
         audioEl.play().catch(function () {});
       } else {
+        if (clubActive) toggleClub();
         audioEl.pause();
       }
     });
@@ -1499,9 +1923,25 @@
     dancersModal = modal;
   }
 
+  function syncPlaybackControlsUi() {
+    if (audioPlayBtn && audioEl) {
+      audioPlayBtn.textContent = audioEl.paused ? 'PLAY' : 'PAUSE';
+    }
+    if (clubBtn) clubBtn.classList.toggle('club-btn--active', clubActive);
+    if (normalClubBtn) normalClubBtn.classList.toggle('club-btn--active', clubActive);
+    syncFullscreenButtons();
+  }
+
   function openDancersModal() {
     if (!dancersModal) createDancersModal();
+    clearQueueAdvanceTimer();
+    if (queueNowInner) {
+      var qRow = queueNowInner.querySelector('.player-queue__now-track-inner');
+      if (qRow) qRow.classList.remove('player-queue__now-track-inner--exit');
+    }
     if (audioEl && !audioEl.paused) audioEl.pause();
+    if (clubActive) toggleClub();
+    syncPlaybackControlsUi();
     openSnapshot             = uploadedDancerUrls.slice();
     openExtraSnapshot        = EXTRA_GIFS.slice();
     openExtraEnabledSnapshot = extraEnabled;

@@ -28,6 +28,8 @@
     </div>
   </header>
   <div class="player">
+    <div class="player-layout">
+    <div class="player-layout__main">
     <div class="player__spectrum-shell" id="spectrum-fullscreen-root">
       <div class="player__spectrum-toolbar">
         <button type="button" class="player__fullscreen-btn" id="customize-dancers-fs-btn" hidden>Customize Dancers</button>
@@ -66,7 +68,7 @@
         </div>
       </div>
       <div class="player__panel player__track-row">
-        <audio id="spectrum-audio" class="player__audio" loop crossorigin="anonymous" draggable="false"></audio>
+        <audio id="spectrum-audio" class="player__audio" crossorigin="anonymous" draggable="false"></audio>
         <div class="audio-ctrl" id="audio-ctrl">
           <button class="audio-ctrl__play" id="audio-play-btn" type="button" aria-label="Play">PLAY</button>
           <button class="audio-ctrl__play audio-ctrl__club" id="normal-club-btn" type="button" aria-label="Club mode">CLUB</button>
@@ -95,6 +97,33 @@
           <button type="button" class="player__color-add-btn" id="gradient-add-color" title="Add color">+</button>
         </div>
       </div>
+    </div>
+    </div>
+    <aside class="player-queue" id="player-queue" aria-label="Playback queue">
+      <div class="player-queue__block">
+        <div class="player-queue__label">NOW</div>
+        <div class="player-queue__now" id="queue-now">
+          <div class="player-queue__now-track" id="queue-now-inner"></div>
+        </div>
+      </div>
+      <div class="player-queue__block">
+        <div class="player-queue__label">NEXT</div>
+        <ul class="player-queue__next" id="queue-next-list"></ul>
+      </div>
+      <div class="player-queue__repeat-wrap">
+        <button type="button" class="player-queue__repeat-btn" id="queue-repeat-btn" aria-label="Repeat mode">Repeat · Off</button>
+      </div>
+      <div class="player-queue__add">
+        <label class="player-queue__upload" role="button" tabindex="0">
+          <span class="player-queue__upload-text">Upload Banger</span>
+          <input type="file" id="queue-file-input" accept=".mp3,audio/mpeg" hidden>
+        </label>
+        <div class="player-queue__add-row">
+          <select id="queue-add-select" class="player-queue__add-select" aria-label="Add library track to queue"></select>
+          <button type="button" class="player-queue__add-btn" id="queue-add-btn">Add</button>
+        </div>
+      </div>
+    </aside>
     </div>
   </div>
   <script src="js/analyser.js"></script>
