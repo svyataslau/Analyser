@@ -78,9 +78,11 @@
     });
     audioEl.addEventListener('play', function () {
       if (audioPlayBtn) audioPlayBtn.textContent = 'PAUSE';
+      syncFullscreenButtons();
     });
     audioEl.addEventListener('pause', function () {
       if (audioPlayBtn) audioPlayBtn.textContent = 'PLAY';
+      syncFullscreenButtons();
     });
   }
 
@@ -536,11 +538,59 @@
   }
 
   if (startCursorImg) {
-    document.addEventListener('mousemove', function (evt) {
-      if (startOverlay && startOverlay.classList.contains('start-overlay--hidden')) return;
+    if (window.innerWidth > 480) {
+      document.addEventListener('mousemove', function (evt) {
+        if (startOverlay && startOverlay.classList.contains('start-overlay--hidden')) return;
+        startCursorImg.style.transform =
+          'translate(calc(' + evt.clientX + 'px - 50%), calc(' + evt.clientY + 'px - 50%))';
+      });
+    } else {
+      var vw0 = window.innerWidth, vh0 = window.innerHeight;
+      // Initial position — random edge zone, outside START boundaries
+      var dir0 = Math.floor(Math.random() * 4);
+      var ix, iy;
+      switch (dir0) {
+        case 0: ix = vw0 * (0.04 + Math.random() * 0.12); iy = vh0 * (0.1 + Math.random() * 0.8); break;
+        case 1: ix = vw0 * (0.84 + Math.random() * 0.12); iy = vh0 * (0.1 + Math.random() * 0.8); break;
+        case 2: ix = vw0 * (0.1 + Math.random() * 0.8); iy = vh0 * (0.04 + Math.random() * 0.12); break;
+        default: ix = vw0 * (0.1 + Math.random() * 0.8); iy = vh0 * (0.84 + Math.random() * 0.12); break;
+      }
+      startCursorImg.style.transition = 'none';
+      startCursorImg.style.opacity = '1';
       startCursorImg.style.transform =
-        'translate(calc(' + evt.clientX + 'px - 50%), calc(' + evt.clientY + 'px - 50%))';
-    });
+        'translate(calc(' + ix + 'px - 50%), calc(' + iy + 'px - 50%))';
+
+      var mobilePhase = 1; // start by moving to center first
+      (function mobileCursorCycle() {
+        if (!startOverlay || startOverlay.classList.contains('start-overlay--hidden')) return;
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var x, y, dur;
+
+        if (mobilePhase === 0) {
+          // Move to a random edge zone (on-screen but far from center)
+          var dir = Math.floor(Math.random() * 4);
+          switch (dir) {
+            case 0: x = vw * (0.04 + Math.random() * 0.12); y = vh * (0.1  + Math.random() * 0.8); break; // left
+            case 1: x = vw * (0.84 + Math.random() * 0.12); y = vh * (0.1  + Math.random() * 0.8); break; // right
+            case 2: x = vw * (0.1  + Math.random() * 0.8);  y = vh * (0.04 + Math.random() * 0.12); break; // top
+            default: x = vw * (0.1 + Math.random() * 0.8);  y = vh * (0.84 + Math.random() * 0.12); break; // bottom
+          }
+          dur = 2200 + Math.random() * 1600;
+        } else {
+          // Return to center zone (START area)
+          x = vw * (0.35 + Math.random() * 0.30);
+          y = vh * (0.35 + Math.random() * 0.30);
+          dur = 2000 + Math.random() * 1400;
+        }
+
+        mobilePhase = 1 - mobilePhase;
+        startCursorImg.style.transition = 'transform ' + dur + 'ms ease-in-out';
+        startCursorImg.style.transform =
+          'translate(calc(' + x + 'px - 50%), calc(' + y + 'px - 50%))';
+
+        setTimeout(mobileCursorCycle, dur + 150 + Math.random() * 400);
+      })();
+    }
   }
 
   startScreen.addEventListener('click', function () {
@@ -588,6 +638,9 @@
   var spectrumShell = document.getElementById('spectrum-fullscreen-root');
   var fullscreenEnter = document.getElementById('fullscreen-enter');
   var fullscreenExit = document.getElementById('fullscreen-exit');
+  var fsPlayBtn = document.getElementById('fs-play-btn');
+  var fsControls = document.getElementById('fs-controls');
+  var normalClubBtn = document.getElementById('normal-club-btn');
   var PSEUDO_FS = 'player__spectrum-shell--pseudo-fs';
 
   function inExpandedView() {
@@ -601,9 +654,10 @@
 
   function syncFullscreenButtons() {
     var on = inExpandedView();
+    var playing = audioEl && !audioEl.paused;
     if (fullscreenEnter) fullscreenEnter.hidden = on;
     if (fullscreenExit)  fullscreenExit.hidden  = !on;
-    if (clubBtn)         clubBtn.hidden          = !on;
+    if (fsControls)      fsControls.classList.toggle('fs-controls--visible', on && !playing);
   }
 
   function usePseudoFullscreen() {
@@ -676,6 +730,32 @@
   if (fullscreenEnter) fullscreenEnter.addEventListener('click', enterExpandedView);
   if (fullscreenExit) fullscreenExit.addEventListener('click', exitExpandedView);
 
+  if (fsPlayBtn) {
+    fsPlayBtn.addEventListener('click', function () {
+      if (audioEl) audioEl.play();
+    });
+  }
+
+  var spectrumCanvas = document.getElementById('spectrum-canvas');
+  if (spectrumCanvas) {
+    spectrumCanvas.addEventListener('click', function () {
+      if (!inExpandedView() || !audioEl) return;
+      if (audioEl.paused) {
+        audioEl.play();
+      } else {
+        if (clubActive) toggleClub();
+        audioEl.pause();
+      }
+    });
+  }
+
+  if (normalClubBtn) {
+    normalClubBtn.addEventListener('click', function () {
+      toggleClub();
+      if (clubActive && audioEl && audioEl.paused) audioEl.play();
+    });
+  }
+
   document.addEventListener('fullscreenchange', onFullscreenEvent);
   document.addEventListener('webkitfullscreenchange', onFullscreenEvent);
 
@@ -730,6 +810,7 @@
     img.setAttribute('aria-hidden', 'true');
     var sizeH = CLUB_DANCER_SIZES[Math.floor(Math.random() * CLUB_DANCER_SIZES.length)];
     img.style.height = sizeH;
+    if (Math.random() < 0.5) img.style.transform = 'scaleX(-1)';
     if (sizeH === '100vh') {
       img.style.bottom = '0';
     } else if (sizeH === '66vh') {
@@ -850,7 +931,8 @@
   function toggleClub() {
     clubActive = !clubActive;
     clubGeneration++;
-    if (clubBtn) clubBtn.classList.toggle('club-btn--active', clubActive);
+    if (clubBtn)       clubBtn.classList.toggle('club-btn--active', clubActive);
+    if (normalClubBtn) normalClubBtn.classList.toggle('club-btn--active', clubActive);
     if (clubActive) {
       syncClubColors();
       clubDancerCount = 0;
@@ -863,7 +945,46 @@
     }
   }
 
-  if (clubBtn) clubBtn.addEventListener('click', toggleClub);
+  if (clubBtn) {
+    clubBtn.addEventListener('click', function () {
+      if (!clubActive) toggleClub();
+      if (audioEl && audioEl.paused) audioEl.play();
+    });
+  }
+
+  // --- UPLOAD DANCERS ---
+  var uploadedDancerUrls = [];
+  var dancersUploadTrigger = document.getElementById('dancers-upload-trigger');
+  var dancersUploadInput   = document.getElementById('dancers-upload-input');
+  var dancersUploadClear   = document.getElementById('dancers-upload-clear');
+
+  if (dancersUploadTrigger && dancersUploadInput) {
+    dancersUploadTrigger.addEventListener('click', function () { dancersUploadInput.click(); });
+    dancersUploadTrigger.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') dancersUploadInput.click();
+    });
+    dancersUploadInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(dancersUploadInput.files, function (file) {
+        var url = URL.createObjectURL(file);
+        uploadedDancerUrls.push(url);
+        CLUB_GIFS.push(url);
+      });
+      if (dancersUploadClear) dancersUploadClear.hidden = uploadedDancerUrls.length === 0;
+      dancersUploadInput.value = '';
+    });
+  }
+
+  if (dancersUploadClear) {
+    dancersUploadClear.addEventListener('click', function () {
+      uploadedDancerUrls.forEach(function (url) {
+        var idx = CLUB_GIFS.indexOf(url);
+        if (idx !== -1) CLUB_GIFS.splice(idx, 1);
+        URL.revokeObjectURL(url);
+      });
+      uploadedDancerUrls = [];
+      dancersUploadClear.hidden = true;
+    });
+  }
 
   syncFullscreenButtons();
 })();
